@@ -3,8 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, model_validator
 
-
-class Base(BaseModel):
+class VoteBase(BaseModel):
     post_id: UUID | None = None
     comment_id: UUID | None = None
 
@@ -18,8 +17,8 @@ class Base(BaseModel):
 
         return self
 
-class Create(Base):
+class VoteCreate(VoteBase):
     type: Literal["LIKE","DISLIKE"]
 
-class Update(Base):
+class VoteUpdate(VoteBase):
     type: Literal["LIKE","DISLIKE"]

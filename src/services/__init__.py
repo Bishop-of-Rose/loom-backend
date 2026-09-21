@@ -1,0 +1,1 @@
+from .posts import get_post_by_id
