@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 T = TypeVar('T')
 
-class CursorPage(BaseModel, Generic[T]):
+class QueryResponse(BaseModel, Generic[T]):
     data: List[T]
     next_cursor: str | None = None
     prev_cursor: str | None = None

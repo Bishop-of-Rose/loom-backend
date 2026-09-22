@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from .routers import auth, users, posts, comments, connections, vote
 from .core.config import settings
-from .core.limiter import limiter, RateLimitExceeded, rate_limit_exceeded_handler
+from .core.limiter import limiter
 
 app = FastAPI(
     title='Loom',
@@ -11,7 +13,7 @@ app = FastAPI(
 )
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,6 +30,6 @@ app.include_router(comments.router)
 app.include_router(connections.router)
 app.include_router(vote.router)
 
-@app.get('')
+@app.get('', tags=['Health'])
 def root():
     return {'message': 'Application currently running'}

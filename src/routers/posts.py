@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import User, Post
-from ..schemas import PostCreate, PostUpdate, PostResponse, CursorPage
+from ..schemas import PostCreate, PostUpdate, PostResponse, QueryResponse, SearchResponse
 from ..services import get_post_by_id
 from ..core.cursor import encode_cursor, decode_cursor
 from ..core.database import get_session
@@ -17,12 +17,17 @@ router = APIRouter(
     tags = ['Posts']
 )
 
-@router.get('', response_model=List[PostResponse])
+@router.get('', response_model=QueryResponse[PostResponse])
 def query_posts(current_user: User = Depends(get_current_user),
                 session: Session = Depends(get_session),
-                cursor: str | None = None, limit: int = Query(default=20, ge=1, le=100),
+                authored_by: UUID | None = None,
+                limit: int = Query(default=20, ge=1, le=100),
+                cursor: str | None = None,
                 direction: Literal['prev', 'next'] = 'next'):
     stmt = select(Post)
+    if authored_by is not None:
+        stmt = stmt.where(Post.user_id == authored_by)
+
     if cursor is not None:
         try:
             target_id = decode_cursor(cursor)
@@ -72,13 +77,11 @@ def query_posts(current_user: User = Depends(get_current_user),
         if has_prev:
             prev_cursor = encode_cursor(posts[0].id)
 
-    """return CursorPage(
+    return QueryResponse(
         data=posts,
         next_cursor=next_cursor,
         prev_cursor=prev_cursor
-    )"""
-
-    return posts
+    )
 
 @router.post('', status_code=status.HTTP_201_CREATED, response_model=PostResponse)
 def create_post(post: PostCreate,
@@ -92,18 +95,23 @@ def create_post(post: PostCreate,
     session.refresh(post)
     return post
 
-@router.get('/{post_id}', response_model=PostResponse)
-def read_post(post_id: UUID,
-              current_user: User = Depends(get_current_user),
-              session: Session = Depends(get_session)):
-    post = get_post_by_id(post_id, session)
-    if post is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail='Post not found')
+@router.post('/search', response_model=SearchResponse[PostResponse])
+def search_posts(post_ids: List[UUID],
+                 current_user: User = Depends(get_current_user),
+                 session: Session = Depends(get_session)):
+    stmt = select(Post).where(Post.id.in_(post_ids))
+    posts = list(session.scalars(stmt).all())
 
-    return post
+    old_post_ids = set(post_ids)
+    new_post_ids = {post.id for post in posts}
+    diff = list(old_post_ids - new_post_ids)
 
-@router.put('/{post_id}', status_code=status.HTTP_202_ACCEPTED, response_model=PostResponse)
+    return SearchResponse(
+        data=posts,
+        missing=diff
+    )
+
+@router.put('/{post_id}', response_model=PostResponse)
 def update_post(post_id: UUID, edit: PostUpdate,
                 current_user: User = Depends(get_current_user),
                 session: Session = Depends(get_session)):

@@ -16,13 +16,13 @@ def get_current_user(access_token: str = Depends(oauth2_scheme),
 
     if check(access_jti):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail='Already logged out')
+                            detail='User already logged out')
 
     user_id = access_payload.get('sub')
     user = session.get(User, user_id)
 
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail='User not found')
+                            detail='User authenticated but not found')
 
     return user

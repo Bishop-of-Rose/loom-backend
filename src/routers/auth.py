@@ -12,7 +12,8 @@ from ..schemas import UserCreate, UserResponse
 from ..core.blacklist import ban, check
 from ..core.config import settings
 from ..core.database import get_session
-from ..core.dependencies import oauth2_scheme
+from ..core.dependencies import oauth2_scheme, get_current_user
+from ..core.limiter import limiter
 from ..core.password import hash_pw, verify_pw
 from ..core.security import tokenize, detokenize
 
@@ -22,7 +23,9 @@ router = APIRouter(
 )
 
 @router.post('/register' , status_code=status.HTTP_201_CREATED, response_model=UserResponse)
+@limiter.limit('5/minute')
 def register(user: UserCreate,
+             request: Request,
              session: Session = Depends(get_session)):
     user.password = hash_pw(user.password)
     user = User(**user.model_dump())
@@ -40,13 +43,15 @@ def register(user: UserCreate,
     return user
 
 @router.post('/login')
-def login(response: Response,
+@limiter.limit('5/minute')
+def login(request: Request,
+          response: Response,
           credentials: OAuth2PasswordRequestForm = Depends(),
           session: Session = Depends(get_session)):
     stmt = select(User).where(User.email == credentials.username)
     user = session.scalars(stmt).one_or_none()
 
-    if user is None or not verify_pw(credentials.password, user.password):
+    if user is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail='Invalid Credentials')
 
@@ -83,14 +88,14 @@ def logout(request: Request,
 
     if check(access_jti):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail='Already logged out')
+                            detail='User already logged out')
 
     remaining_ttl = int(access_payload.get('exp') - datetime.now(UTC).timestamp())
     if remaining_ttl > 0:
         ban(access_jti, remaining_ttl)
 
     response.delete_cookie('refresh_token')
-    return
+    return {'message': 'User logged out successfully'}
 
 @router.post('/refresh')
 def refresh(request: Request,
@@ -109,7 +114,7 @@ def refresh(request: Request,
 
     if check(access_jti):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail='Already logged out')
+                            detail='User already logged out')
 
     remaining_ttl = int(refresh_payload.get('exp') - datetime.now(UTC).timestamp())
     if remaining_ttl > 0:
@@ -129,3 +134,7 @@ def refresh(request: Request,
     )
 
     return {'access_token': access_token}
+
+@router.get('/whoami', response_model=UserResponse)
+def who_am_i(current_user = Depends(get_current_user)):
+    return current_user

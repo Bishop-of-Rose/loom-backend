@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    ORIGIN: str = "origin"
+    ORIGIN: str = "client_origin"
     TEST_DATABASE_URL: str = "test_database_url"
     DATABASE_URL: str = "database_url"
     REDIS_URL: str = "redis_url"

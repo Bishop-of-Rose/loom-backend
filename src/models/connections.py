@@ -10,8 +10,8 @@ class Connection(Base):
 
     user_id_1: Mapped[UUID] = mapped_column(primary_key=True)
     user_id_2: Mapped[UUID] = mapped_column(primary_key=True)
-    initiator_id: Mapped[UUID] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    recipient_id: Mapped[UUID] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    initiator_id: Mapped[UUID] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    recipient_id: Mapped[UUID] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(default=False)
 
     __table_args__ = (
