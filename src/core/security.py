@@ -1,61 +1,32 @@
-from typing import Tuple, Dict
-from uuid import uuid4, UUID
+from typing import Dict
+from uuid import UUID, uuid4
 from datetime import datetime, UTC, timedelta
 
 from jwt import encode, decode, ExpiredSignatureError, InvalidTokenError
-from fastapi import HTTPException, status
+from fastapi import status, HTTPException
 
 from .config import settings
 
-def tokenize(user_id: UUID) -> Tuple[str, str]:
-    sub = str(user_id)
-    jti =  str(uuid4())
-    current_time = datetime.now(UTC)
-    access_exp = current_time + timedelta(hours=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_exp = current_time + timedelta(hours=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+def encode_jwt_token(user_id: UUID, delta: timedelta) -> str:
+    token = encode(
+        {'sub': str(user_id),
+         'jti': str(uuid4()),
+         'exp': datetime.now(UTC) + delta},
+        settings.SECRET_KEY,
+        settings.ALGORITHM
+    )
+    return token
 
-    access_payload = {
-        "sub": sub,
-        "jti": jti,
-        "exp": access_exp,
-        "type": "Access"
-    }
-
-    refresh_payload = {
-        "sub": sub,
-        "jti": jti,
-        "exp": refresh_exp,
-        "type": "Refresh"
-    }
-
-    access_token = encode(access_payload, settings.SECRET_KEY, settings.ALGORITHM)
-    refresh_token = encode(refresh_payload, settings.SECRET_KEY, settings.ALGORITHM)
-
-    return access_token, refresh_token
-
-def detokenize(token: str, token_type: str, suppress: bool = False) -> Dict[str, str | int]:
-    if token is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'{token_type} token is missing')
-
+def decode_jwt_token(token: str, suppress: bool = False) -> Dict:
     try:
-        payload = decode(token, settings.SECRET_KEY, settings.ALGORITHM)
-        if payload.get('type') != token_type:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail=f'Invalid {token_type} token')
+        payload = decode(token, settings.SECRET_KEY, settings.ALGORITHM, options={"verify_exp": not suppress})
 
     except ExpiredSignatureError:
-        if not suppress:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'{token_type} token has expired')
-
-        payload = decode(token, settings.SECRET_KEY, settings.ALGORITHM, options={'verify_exp': False})
-        if payload.get('type') != token_type:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail=f'Invalid {token_type} token')
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail='Token expired')
 
     except InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'Invalid {token_type} token')
+                            detail='Invalid token')
 
     return payload

@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..models import User, Post
 from ..schemas import PostCreate, PostUpdate, PostResponse, QueryResponse, SearchResponse
-from ..services import get_post_by_id
-from ..core.cursor import encode_cursor, decode_cursor
+from ..services import query_items, search_items
 from ..core.database import get_session
 from ..core.dependencies import get_current_user
 
@@ -20,75 +19,23 @@ router = APIRouter(
 @router.get('', response_model=QueryResponse[PostResponse])
 def query_posts(current_user: User = Depends(get_current_user),
                 session: Session = Depends(get_session),
-                authored_by: UUID | None = None,
+                author: UUID | None = None,
                 limit: int = Query(default=20, ge=1, le=100),
                 cursor: str | None = None,
                 direction: Literal['prev', 'next'] = 'next'):
     stmt = select(Post)
-    if authored_by is not None:
-        stmt = stmt.where(Post.user_id == authored_by)
+    if author is not None:
+        stmt = stmt.where(Post.author_id == author)
 
-    if cursor is not None:
-        try:
-            target_id = decode_cursor(cursor)
-            if direction == 'next':
-                stmt = stmt.where(Post.id < target_id).order_by(Post.id.desc())
-
-            elif direction == 'prev':
-                stmt = stmt.where(Post.id > target_id).order_by(Post.id.asc())
-
-        except ValueError:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail='Invalid cursor')
-
-    else:
-        stmt = stmt.order_by(Post.id.desc())
-
-    stmt = stmt.limit(limit + 1)
-    result = list(session.scalars(stmt).all())
-
-    has_more = len(result) > limit
-    has_next = False
-    has_prev = False
-    posts = result[:limit]
-
-    if direction == 'prev':
-        posts.reverse()
-
-    if cursor is None:
-        has_prev = False
-        has_next = has_more
-
-    elif direction == 'next':
-        has_prev = True
-        has_next = has_more
-
-    elif direction == 'prev':
-        has_prev = has_more
-        has_next = True
-
-    next_cursor = None
-    prev_cursor = None
-
-    if posts:
-        if has_next:
-            next_cursor = encode_cursor(posts[-1].id)
-
-        if has_prev:
-            prev_cursor = encode_cursor(posts[0].id)
-
-    return QueryResponse(
-        data=posts,
-        next_cursor=next_cursor,
-        prev_cursor=prev_cursor
-    )
+    response = query_items(session, Post, stmt, limit, cursor, direction)
+    return response
 
 @router.post('', status_code=status.HTTP_201_CREATED, response_model=PostResponse)
 def create_post(post: PostCreate,
                 current_user: User = Depends(get_current_user),
                 session: Session = Depends(get_session)):
     post = Post(**post.model_dump())
-    post.user_id = current_user.id
+    post.author_id = current_user.id
 
     session.add(post)
     session.commit()
@@ -99,28 +46,19 @@ def create_post(post: PostCreate,
 def search_posts(post_ids: List[UUID],
                  current_user: User = Depends(get_current_user),
                  session: Session = Depends(get_session)):
-    stmt = select(Post).where(Post.id.in_(post_ids))
-    posts = list(session.scalars(stmt).all())
-
-    old_post_ids = set(post_ids)
-    new_post_ids = {post.id for post in posts}
-    diff = list(old_post_ids - new_post_ids)
-
-    return SearchResponse(
-        data=posts,
-        missing=diff
-    )
+    response = search_items(session, Post, post_ids)
+    return response
 
 @router.put('/{post_id}', response_model=PostResponse)
 def update_post(post_id: UUID, edit: PostUpdate,
                 current_user: User = Depends(get_current_user),
                 session: Session = Depends(get_session)):
-    post = get_post_by_id(post_id, session)
+    post = session.get(Post, post_id)
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail='Post not found')
 
-    if post.user_id != current_user.id:
+    if post.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail='Unauthorised to update this post')
 
@@ -133,12 +71,12 @@ def update_post(post_id: UUID, edit: PostUpdate,
 def delete_post(post_id: UUID,
                 current_user: User = Depends(get_current_user),
                 session: Session = Depends(get_session)):
-    post = get_post_by_id(post_id, session)
+    post = session.get(Post, post_id)
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail='Post not found')
 
-    if post.user_id != current_user.id:
+    if post.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail='Unauthorised to delete this post')
 

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from .routers import auth, users, posts, comments, connections, vote
+from .routers import auth, account, profiles, posts, comments, connections, vote
 from .core.config import settings
 from .core.limiter import limiter
 
@@ -24,12 +24,13 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
-app.include_router(users.router)
+app.include_router(account.router)
+app.include_router(profiles.router)
 app.include_router(posts.router)
 app.include_router(comments.router)
 app.include_router(connections.router)
 app.include_router(vote.router)
 
-@app.get('', tags=['Health'])
+@app.get('/', tags=['Health'])
 def root():
     return {'message': 'Application currently running'}

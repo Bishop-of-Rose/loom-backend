@@ -1,27 +1,24 @@
-from typing import List
 from uuid import UUID
 from datetime import datetime
 
 from pydantic import BaseModel, EmailStr
 
-class UserCreate(BaseModel):
+from .profiles import ProfileResponse
+
+class RegistrationRequestForm(BaseModel):
     email: EmailStr
-    username: str
     password: str
 
-class UserUpdate(BaseModel):
-    username: str | None = None
-    password: str | None = None
+class ActivationRequestForm(BaseModel):
+    email: EmailStr
+    token: str
 
 class UserResponse(BaseModel):
     id: UUID
-    email: str
-    username: str
-    initiated_connections: List[UUID]
-    received_connections: List[UUID]
-    established_connections: List[UUID]
+    email: EmailStr
     created_at: datetime
     updated_at: datetime
+    profile: ProfileResponse | None = None
 
     class Config:
         from_attributes = True

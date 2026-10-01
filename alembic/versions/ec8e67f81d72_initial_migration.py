@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: 9afd1ffa8377
+Revision ID: ec8e67f81d72
 Revises: 
-Create Date: 2026-09-22 11:51:50.976585
+Create Date: 2026-09-27 17:25:58.602209
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '9afd1ffa8377'
+revision: str = 'ec8e67f81d72'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -24,62 +24,79 @@ def upgrade() -> None:
     op.create_table('users',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('email', sa.String(), nullable=False),
-    sa.Column('username', sa.String(), nullable=False),
     sa.Column('password', sa.String(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
     )
+    op.create_table('profiles',
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('unique_name', sa.String(), nullable=False),
+    sa.Column('username', sa.String(), nullable=False),
+    sa.Column('avatar', sa.String(), nullable=False),
+    sa.Column('bio', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('unique_name')
+    )
     op.create_table('connections',
-    sa.Column('user_id_1', sa.Uuid(), nullable=False),
-    sa.Column('user_id_2', sa.Uuid(), nullable=False),
+    sa.Column('person_one', sa.Uuid(), nullable=False),
+    sa.Column('person_two', sa.Uuid(), nullable=False),
     sa.Column('initiator_id', sa.Uuid(), nullable=False),
     sa.Column('recipient_id', sa.Uuid(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.CheckConstraint('(initiator_id = user_id_1 AND recipient_id = user_id_2) OR (initiator_id = user_id_2 AND recipient_id = user_id_1)', name='ck_initiator_recipient_match_pk'),
+    sa.CheckConstraint('(initiator_id = person_one AND recipient_id = person_two) OR (initiator_id = person_two AND recipient_id = person_one)', name='ck_initiator_recipient_match_pk'),
     sa.CheckConstraint('initiator_id != recipient_id', name='ck_no_self_connection'),
-    sa.CheckConstraint('user_id_1 < user_id_2', name='ck_uuid_order'),
-    sa.ForeignKeyConstraint(['initiator_id'], ['users.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['recipient_id'], ['users.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('user_id_1', 'user_id_2')
+    sa.CheckConstraint('person_one < person_two', name='ck_uuid_order'),
+    sa.ForeignKeyConstraint(['initiator_id'], ['profiles.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['person_one'], ['profiles.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['person_two'], ['profiles.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['recipient_id'], ['profiles.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('person_one', 'person_two')
     )
-    op.create_index(op.f('ix_connections_initiator_id'), 'connections', ['initiator_id'], unique=False)
-    op.create_index(op.f('ix_connections_recipient_id'), 'connections', ['recipient_id'], unique=False)
     op.create_table('posts',
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('user_id', sa.Uuid(), nullable=False),
+    sa.Column('author_id', sa.Uuid(), nullable=False),
     sa.Column('content', sa.String(), nullable=False),
     sa.Column('tags', sa.ARRAY(sa.String()), nullable=False),
     sa.Column('media', sa.ARRAY(sa.String()), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['author_id'], ['profiles.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('comments',
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('user_id', sa.Uuid(), nullable=False),
-    sa.Column('post_id', sa.Uuid(), nullable=False),
+    sa.Column('author_id', sa.Uuid(), nullable=False),
+    sa.Column('commented', sa.Uuid(), nullable=True),
+    sa.Column('replied', sa.Uuid(), nullable=True),
     sa.Column('content', sa.String(), nullable=False),
+    sa.Column('tags', sa.ARRAY(sa.String()), nullable=False),
+    sa.Column('media', sa.ARRAY(sa.String()), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['post_id'], ['posts.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.CheckConstraint('(commented IS NULL) != (replied IS NULL)', name='ck_comment_target'),
+    sa.ForeignKeyConstraint(['author_id'], ['profiles.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['commented'], ['posts.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['replied'], ['comments.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('votes',
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('user_id', sa.Uuid(), nullable=False),
+    sa.Column('author_id', sa.Uuid(), nullable=False),
     sa.Column('post_id', sa.Uuid(), nullable=True),
     sa.Column('comment_id', sa.Uuid(), nullable=True),
     sa.Column('type', sa.Enum('LIKE', 'DISLIKE', name='vote_type_enum'), nullable=False),
-    sa.CheckConstraint('(post_id IS NULL) != (comment_id IS NULL)', name='ck_vote_target_either_post_or_comment'),
+    sa.CheckConstraint('(post_id IS NULL) != (comment_id IS NULL)', name='ck_vote_target'),
+    sa.ForeignKeyConstraint(['author_id'], ['profiles.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['comment_id'], ['comments.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['post_id'], ['posts.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('user_id', 'post_id', 'comment_id', name='uq_vote_user_target', postgresql_nulls_not_distinct=True)
+    sa.UniqueConstraint('author_id', 'post_id', 'comment_id', name='uq_vote_author_target', postgresql_nulls_not_distinct=True)
     )
     op.create_index('ix_vote_comment_id', 'votes', ['comment_id'], unique=False, postgresql_where=sa.text('comment_id IS NOT NULL'))
     op.create_index('ix_vote_post_id', 'votes', ['post_id'], unique=False, postgresql_where=sa.text('post_id IS NOT NULL'))
@@ -94,8 +111,7 @@ def downgrade() -> None:
     op.drop_table('votes')
     op.drop_table('comments')
     op.drop_table('posts')
-    op.drop_index(op.f('ix_connections_recipient_id'), table_name='connections')
-    op.drop_index(op.f('ix_connections_initiator_id'), table_name='connections')
     op.drop_table('connections')
+    op.drop_table('profiles')
     op.drop_table('users')
     # ### end Alembic commands ###

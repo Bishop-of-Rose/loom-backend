@@ -10,22 +10,22 @@ class Vote(Base):
     __tablename__ = "votes"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
-    user_id: Mapped[UUID] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    author_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'), nullable=False)
     post_id: Mapped[UUID | None] = mapped_column(ForeignKey('posts.id', ondelete='CASCADE'))
     comment_id: Mapped[UUID | None] = mapped_column(ForeignKey('comments.id', ondelete='CASCADE'))
     type: Mapped[Literal['LIKE', 'DISLIKE']] = mapped_column(Enum('LIKE', 'DISLIKE', name='vote_type_enum'), nullable=False)
 
     __table_args__ = (
         UniqueConstraint(
-            'user_id',
+            'author_id',
             'post_id',
             'comment_id',
-            name='uq_vote_user_target',
+            name='uq_vote_author_target',
             postgresql_nulls_not_distinct=True
         ),
         CheckConstraint(
             '(post_id IS NULL) != (comment_id IS NULL)',
-            name='ck_vote_target_either_post_or_comment'
+            name='ck_vote_target'
         ),
         Index(
             'ix_vote_post_id',

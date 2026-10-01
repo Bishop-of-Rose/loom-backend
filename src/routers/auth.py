@@ -1,21 +1,22 @@
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
-from fastapi.security.oauth2 import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, status, Request, Response
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from psycopg2.errors import UniqueViolation
 
 from ..models import User
-from ..schemas import UserCreate, UserResponse
-from ..core.blacklist import ban, check
+from ..schemas import RegistrationRequestForm, UserResponse
+from ..core import blacklist
 from ..core.config import settings
 from ..core.database import get_session
-from ..core.dependencies import oauth2_scheme, get_current_user
+from ..core.dependencies import oauth2_scheme, get_refresh_token
 from ..core.limiter import limiter
 from ..core.password import hash_pw, verify_pw
-from ..core.security import tokenize, detokenize
+from ..core.security import encode_jwt_token, decode_jwt_token
 
 router = APIRouter(
     prefix='/auth',
@@ -23,13 +24,13 @@ router = APIRouter(
 )
 
 @router.post('/register' , status_code=status.HTTP_201_CREATED, response_model=UserResponse)
-@limiter.limit('5/minute')
-def register(user: UserCreate,
-             request: Request,
+@limiter.limit('10/minute')
+def register(request: Request,
+             response: Response,
+             user: RegistrationRequestForm,
              session: Session = Depends(get_session)):
     user.password = hash_pw(user.password)
     user = User(**user.model_dump())
-
     try:
         session.add(user)
         session.commit()
@@ -37,104 +38,85 @@ def register(user: UserCreate,
 
     except IntegrityError as e:
         if isinstance(e.orig, UniqueViolation):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                                detail='User with that email already exists')
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                                content={'detail': 'User with that email already exists'})
 
     return user
 
 @router.post('/login')
-@limiter.limit('5/minute')
+@limiter.limit('10/minute')
 def login(request: Request,
           response: Response,
           credentials: OAuth2PasswordRequestForm = Depends(),
           session: Session = Depends(get_session)):
-    stmt = select(User).where(User.email == credentials.username)
+    stmt = select(User).where(User.email == credentials.username, User.is_active == True)
     user = session.scalars(stmt).one_or_none()
 
     if user is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail='Invalid Credentials')
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED,
+                            content={'detail': 'Invalid credentials'})
 
     if not verify_pw(credentials.password, user.password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail='Invalid Credentials')
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED,
+                            content={'detail': 'Invalid credentials'})
 
-    access_token, refresh_token = tokenize(user.id)
+    access_token = encode_jwt_token(user.id, timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    refresh_token = encode_jwt_token(user.id, timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite='none',
+        samesite='lax',
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 
     return {'access_token': access_token}
 
 @router.post('/logout')
-def logout(request: Request,
-           response: Response,
-           access_token: str = Depends(oauth2_scheme)):
-    refresh_token = request.cookies.get('refresh_token')
-    
-    access_payload = detokenize(access_token, 'Access', suppress=True)
-    refresh_payload = detokenize(refresh_token, 'Refresh', suppress=True)
-    access_jti = access_payload.get('jti')
-    refresh_jti = refresh_payload.get('jti')
+def logout(response: Response,
+           access_token: str = Depends(oauth2_scheme),
+           refresh_token: str = Depends(get_refresh_token)):
+    access_payload = decode_jwt_token(access_token)
+    refresh_payload = decode_jwt_token(refresh_token)
+    access_jti, access_ttl = access_payload.get('jti'), int(access_payload.get('exp') - datetime.now(UTC).timestamp())
+    refresh_jti, refresh_ttl = refresh_payload.get('jti'), int(refresh_payload.get('exp') - datetime.now(UTC).timestamp())
 
-    if access_jti != refresh_jti:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail='Access token and refresh token do not match')
-
-    if check(access_jti):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail='User already logged out')
-
-    remaining_ttl = int(access_payload.get('exp') - datetime.now(UTC).timestamp())
-    if remaining_ttl > 0:
-        ban(access_jti, remaining_ttl)
+    blacklist.ban(access_jti, access_ttl)
+    blacklist.ban(refresh_jti, refresh_ttl)
 
     response.delete_cookie('refresh_token')
-    return {'message': 'User logged out successfully'}
+    return
 
 @router.post('/refresh')
-def refresh(request: Request,
-            response: Response,
-            access_token: str = Depends(oauth2_scheme)):
-    refresh_token = request.cookies.get('refresh_token')
-
-    access_payload = detokenize(access_token, 'Access', suppress=True)
-    refresh_payload = detokenize(refresh_token, 'Refresh')
-    access_jti = access_payload.get('jti')
+def refresh(response: Response,
+            access_token: str = Depends(oauth2_scheme),
+            refresh_token: str = Depends(get_refresh_token)):
+    access_payload = decode_jwt_token(access_token)
+    refresh_payload = decode_jwt_token(refresh_token)
     refresh_jti = refresh_payload.get('jti')
+    refresh_ttl = int(refresh_payload.get('exp') - datetime.now(UTC).timestamp())
+    if blacklist.check(refresh_jti):
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED,
+                            content={'detail': 'Token revoked'})
 
-    if access_jti != refresh_jti:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail='Access token and refresh token do not match')
-
-    if check(access_jti):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail='User already logged out')
-
-    remaining_ttl = int(refresh_payload.get('exp') - datetime.now(UTC).timestamp())
-    if remaining_ttl > 0:
-        ban(access_jti, remaining_ttl)
+    blacklist.ban(refresh_jti, refresh_ttl)
+    response.delete_cookie('refresh_token')
 
     user_id = access_payload.get('sub')
-    access_token, refresh_token = tokenize(user_id)
+    if user_id != refresh_payload.get('sub'):
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED,
+                            content={'detail': 'Token mismatch'})
 
-    response.delete_cookie('refresh_token')
+    access_token = encode_jwt_token(user_id, timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    refresh_token = encode_jwt_token(user_id, timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite='none',
+        samesite='lax',
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 
     return {'access_token': access_token}
-
-@router.get('/whoami', response_model=UserResponse)
-def who_am_i(current_user = Depends(get_current_user)):
-    return current_user

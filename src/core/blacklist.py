@@ -2,8 +2,9 @@ from uuid import UUID
 
 from .redis import client
 
-def ban(jti: UUID, remaining_ttl: int) -> None:
-    client.set(f'{jti}', 'revoked', ex=remaining_ttl)
-
 def check(jti: UUID) -> bool:
-    return client.get(f'{jti}') is not None
+    return client.get(f'blacklist:{jti}') is not None
+
+def ban(jti: UUID, ttl: int) -> None:
+    if ttl > 0:
+        client.set(f'blacklist:{jti}', 'revoked', ex=ttl)
