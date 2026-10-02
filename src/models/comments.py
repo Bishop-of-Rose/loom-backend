@@ -17,13 +17,20 @@ class Comment(Base):
     commented: Mapped[UUID | None] = mapped_column(ForeignKey('posts.id', ondelete='CASCADE'))
     replied: Mapped[UUID | None] = mapped_column(ForeignKey('comments.id', ondelete='CASCADE'))
     content: Mapped[str] = mapped_column(nullable=False)
-    tags: Mapped[List[str]] = mapped_column(ARRAY(String))
     media: Mapped[List[str]] = mapped_column(ARRAY(String))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
-    author: Mapped['Profile'] = relationship('Profile', viewonly=True)
-    _votes: Mapped[List['Vote']] = relationship('Vote', viewonly=True)
+    author: Mapped['Profile'] = relationship(
+        'Profile',
+        lazy='joined',
+        viewonly=True
+    )
+    _votes: Mapped[List['Vote']] = relationship(
+        'Vote',
+        lazy='selectin',
+        viewonly=True
+    )
 
     @property
     def likes(self) -> List[UUID]:

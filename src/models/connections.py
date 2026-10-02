@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, CheckConstraint
+from sqlalchemy import ForeignKey, CheckConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from . import Base
@@ -12,7 +12,7 @@ class Connection(Base):
     person_two: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'), primary_key=True)
     initiator_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'), nullable=False)
     recipient_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'), nullable=False)
-    is_active: Mapped[bool] = mapped_column(default=False)
+    is_active: Mapped[bool] = mapped_column(server_default=text('false'))
 
     __table_args__ = (
         CheckConstraint('person_one < person_two', name='ck_uuid_order'),

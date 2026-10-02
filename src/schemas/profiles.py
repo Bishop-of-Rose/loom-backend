@@ -9,6 +9,11 @@ class ProfileInit(BaseModel):
     avatar: str = ""
     bio: str = ""
 
+class ProfileChange(BaseModel):
+    username: str | None = None
+    avatar: str | None = None
+    bio: str | None = None
+
 class MinProfileResponse(BaseModel):
     id: UUID
     unique_name: str

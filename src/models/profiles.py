@@ -21,6 +21,7 @@ class Profile(Base):
 
     _connections: Mapped[List['Connection']] = relationship(
         'Connection',
+        lazy='selectin',
         primaryjoin=lambda: (
             (Profile.id == foreign(Connection.person_one)) | (Profile.id == foreign(Connection.person_two))
         ),

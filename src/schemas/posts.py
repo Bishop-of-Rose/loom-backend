@@ -8,18 +8,15 @@ from .profiles import ProfileResponse
 
 class PostCreate(BaseModel):
     content: str
-    tags: List[str] = []
     media: List[str] = []
 
 class PostUpdate(BaseModel):
     content: str
-    tags: List[str] = []
     media: List[str] = []
 
 class PostResponse(BaseModel):
     id: UUID
     content: str
-    tags: List[str] = []
     media: List[str] = []
     likes: List[UUID]
     dislikes: List[UUID]
