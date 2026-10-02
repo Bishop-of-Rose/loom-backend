@@ -13,12 +13,15 @@ class ActivationRequestForm(BaseModel):
     email: EmailStr
     token: str
 
+class LoginForm(RegistrationRequestForm):
+    pass
+
 class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
     created_at: datetime
     updated_at: datetime
-    profile: ProfileResponse | None = None
+    profile: ProfileResponse | None
 
     class Config:
         from_attributes = True

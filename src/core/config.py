@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
+    ENVIRONMENT: str
     ORIGIN: str
     TEST_DATABASE_URL: str
     DATABASE_URL: str
@@ -9,6 +10,14 @@ class Settings(BaseSettings):
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
+
+    @property
+    def IS_DEV(self):
+        return self.ENVIRONMENT == 'dev'
+
+    @property
+    def IS_PROD(self):
+        return self.ENVIRONMENT == 'prod'
 
     model_config = SettingsConfigDict(
         env_file='.env',
