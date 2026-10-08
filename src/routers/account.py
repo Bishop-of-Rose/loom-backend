@@ -13,5 +13,5 @@ router = APIRouter(
 )
 
 @router.get('/me', response_model=UserResponse)
-def who_am_i(current_user: User = Depends(get_current_user)):
+def me(current_user: User = Depends(get_current_user)):
     return current_user

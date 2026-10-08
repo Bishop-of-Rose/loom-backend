@@ -12,8 +12,9 @@ class User(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     email: Mapped[str] = mapped_column(nullable=False, unique=True)
-    password: Mapped[str] = mapped_column(nullable=False)
-    is_active: Mapped[bool] = mapped_column(server_default=text('true'))
+    password: Mapped[str] = mapped_column(nullable=True)
+    oauth_id: Mapped[str] = mapped_column(nullable=True)
+    provider: Mapped[str] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

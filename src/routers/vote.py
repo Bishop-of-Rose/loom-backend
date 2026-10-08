@@ -18,22 +18,18 @@ router = APIRouter(
 
 @router.post('')
 def toggle_vote(target: VoteBase,
-                choice: Literal['LIKE', 'DISLIKE'] | None = None,
+                choice: Literal['LIKE', 'DISLIKE'],
                 current_user: User = Depends(get_current_user),
                 session: Session = Depends(get_session)):
     stmt = select(Vote).where(Vote.author_id == current_user.id, Vote.post_id == target.post_id, Vote.comment_id == target.comment_id)
     vote = session.scalars(stmt).one_or_none()
     if vote is None:
-        if choice is None:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                                detail='Vote type not specified for vote creation')
-
         vote = Vote(**target.model_dump(), author_id=current_user.id, type=choice)
         session.add(vote)
         message = f'{vote.type} successfully created'
 
     else:
-        if choice is not None:
+        if choice != vote.type:
             vote.type, choice = choice, vote.type
             message = f'{choice} successfully updated to {vote.type}'
 

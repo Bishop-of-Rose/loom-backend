@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: 1dbefed499d2
+Revision ID: 689d994c6a35
 Revises: 
-Create Date: 2026-10-02 09:26:01.275877
+Create Date: 2026-10-08 10:59:48.321240
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '1dbefed499d2'
+revision: str = '689d994c6a35'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -24,8 +24,9 @@ def upgrade() -> None:
     op.create_table('users',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('email', sa.String(), nullable=False),
-    sa.Column('password', sa.String(), nullable=False),
-    sa.Column('is_active', sa.Boolean(), server_default=sa.text('true'), nullable=False),
+    sa.Column('password', sa.String(), nullable=True),
+    sa.Column('oauth_id', sa.String(), nullable=True),
+    sa.Column('provider', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
@@ -33,15 +34,13 @@ def upgrade() -> None:
     )
     op.create_table('profiles',
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('unique_name', sa.String(), nullable=False),
     sa.Column('username', sa.String(), nullable=False),
     sa.Column('avatar', sa.String(), nullable=False),
     sa.Column('bio', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['id'], ['users.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('unique_name')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('connections',
     sa.Column('person_one', sa.Uuid(), nullable=False),

@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from .routers import auth, account, query, search, profiles, posts, comments, connections, vote
+from . import auth
+from .routers import account, query, search, profiles, posts, comments, connections, vote
 from .core.config import settings
 from .core.limiter import limiter
 
@@ -22,8 +24,15 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*']
 )
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SESSION_SECRET,
+    same_site='lax',
+    https_only=False
+)
 
-app.include_router(auth.router)
+app.include_router(auth.default.router)
+app.include_router(auth.google.router)
 app.include_router(account.router)
 app.include_router(query.router)
 app.include_router(search.router)

@@ -6,23 +6,19 @@ from pydantic import BaseModel
 
 class ProfileInit(BaseModel):
     username: str
-    avatar: str = ""
     bio: str = ""
 
 class ProfileChange(BaseModel):
     username: str | None = None
-    avatar: str | None = None
     bio: str | None = None
 
 class MinProfileResponse(BaseModel):
     id: UUID
-    unique_name: str
 
 class ProfileResponse(BaseModel):
     id: UUID
-    unique_name: str
+    avatar_loc: str
     username: str
-    avatar: str
     bio: str
     connections: List[UUID]
     initiated: List[UUID]
