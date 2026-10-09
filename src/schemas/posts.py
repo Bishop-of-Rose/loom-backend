@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from .profiles import ProfileResponse
+from .profiles import MinProfileResponse
 
 class PostCreate(BaseModel):
     content: str
@@ -22,4 +22,4 @@ class PostResponse(BaseModel):
     dislikes: List[UUID]
     created_at: datetime
     updated_at: datetime
-    author: ProfileResponse
+    author: MinProfileResponse

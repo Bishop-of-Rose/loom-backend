@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from src.main import app
-from src.models import Base, User
+from src.models import Base
 from src.core.database import get_session
 from src.core.config import settings
 
@@ -68,14 +68,6 @@ def registered_user(client):
     return data
 
 @pytest.fixture
-def registered_admin(session, registered_user):
-    user = session.get(User, registered_user['id'])
-    user.role = 'admin'
-    session.commit()
-    session.refresh(user)
-    return user
-
-@pytest.fixture
 def logged_in(client, registered_user):
     data = {
         'username': registered_user['email'],
@@ -109,14 +101,14 @@ def random_expired_tokens():
         'sub': sub,
         'jti': str(uuid4()),
         'exp': current_time,
-        'type': 'Access'
+        'type': 'access'
     }
 
     refresh_payload = {
         'sub': sub,
         'jti': str(uuid4()),
         'exp': current_time,
-        'type': 'Refresh'
+        'type': 'refresh'
     }
 
     access_token = jwt.encode(access_payload, settings.SECRET_KEY, settings.ALGORITHM)
@@ -135,14 +127,14 @@ def random_unmatched_tokens():
         'sub': sub,
         'jti': str(uuid4()),
         'exp': access_exp,
-        'type': 'Access'
+        'type': 'access'
     }
 
     refresh_payload = {
         'sub': sub,
         'jti': str(uuid4()),
         'exp': refresh_exp,
-        'type': 'Refresh'
+        'type': 'refresh'
     }
 
     access_token = jwt.encode(access_payload, settings.SECRET_KEY, settings.ALGORITHM)
@@ -162,14 +154,14 @@ def random_matched_tokens():
         'sub': sub,
         'jti': jti,
         'exp': access_exp,
-        'type': 'Access'
+        'type': 'access'
     }
 
     refresh_payload = {
         'sub': sub,
         'jti': jti,
         'exp': refresh_exp,
-        'type': 'Refresh'
+        'type': 'refresh'
     }
 
     access_token = jwt.encode(access_payload, settings.SECRET_KEY, settings.ALGORITHM)

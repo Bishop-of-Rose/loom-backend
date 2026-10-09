@@ -2,7 +2,7 @@ from typing import Tuple, Dict, Literal
 from uuid import UUID, uuid4
 from datetime import datetime, UTC, timedelta
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from jwt import encode, decode, ExpiredSignatureError, InvalidTokenError
 from fastapi import status, HTTPException
 
@@ -12,7 +12,7 @@ class Payload(BaseModel):
     sub: str
     jti: str
     exp: int
-    type: str
+    type: Literal['access', 'refresh']
 
 def create_tokens(user_id: UUID, current_time: datetime = datetime.now(UTC)) -> Tuple:
     access_payload = {
@@ -41,12 +41,19 @@ def decode_jwt_token(token: str, expected: Literal['access', 'refresh'], suppres
 
     try:
         payload = decode(token, settings.SECRET_KEY, settings.ALGORITHM, options={"verify_exp": not suppress})
+        payload = Payload.model_validate(payload).model_dump()
+        if payload['type'] != expected:
+            raise ValueError
+
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail=f'{expected.capitalize()} token form unadhered')
 
     except ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail=f'{expected.capitalize()} token expired')
 
-    except InvalidTokenError, ValidationError:
+    except InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail=f'Invalid {expected} token')
 

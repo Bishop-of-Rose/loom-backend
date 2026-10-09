@@ -1,15 +1,12 @@
-from typing import List, Literal
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status, APIRouter, Query
+from fastapi import Depends, HTTPException, status, APIRouter
 from psycopg2.errors import ForeignKeyViolation
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models import User, Comment
-from ..schemas import CommentCreate, CommentUpdate, CommentResponse, QueryResponse, SearchResponse
-from ..services import query_items, search_items
+from ..schemas import CommentCreate, CommentUpdate, CommentResponse
 from ..core.database import get_session
 from ..core.dependencies import get_current_user
 

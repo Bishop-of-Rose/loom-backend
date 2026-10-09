@@ -4,11 +4,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, model_validator
 
-from .profiles import ProfileResponse
+from .profiles import MinProfileResponse
 
 class CommentCreate(BaseModel):
-    commented: UUID | None = None
-    replied: UUID | None = None
+    commented: UUID | None
+    replied: UUID | None
     content: str
     media: List[str] = []
 
@@ -33,7 +33,7 @@ class CommentResponse(BaseModel):
     dislikes: List[UUID]
     created_at: datetime
     updated_at: datetime
-    author: ProfileResponse
+    author: MinProfileResponse
 
     class Config:
         from_attributes = True

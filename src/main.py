@@ -11,7 +11,7 @@ from .core.limiter import limiter
 
 app = FastAPI(
     title='Loom',
-    version='1.0.0'
+    version='1.0.0',
 )
 
 app.state.limiter = limiter

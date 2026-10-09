@@ -1,14 +1,13 @@
-from uuid import uuid7
-
 from authlib.integrations.base_client import OAuthError
 from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 
 from .base import oauth2
-from ...models import User, Profile
+from ...models import User
 from ...services import get_user_by_oauth_id, get_user_by_email
 from ...core.database import get_session
 from ...core.config import settings
+from ...core.limiter import limiter
 from ...core.security import create_tokens
 router = APIRouter(
     prefix='/auth/google',
@@ -16,11 +15,13 @@ router = APIRouter(
 )
 
 @router.get('/login')
+@limiter.limit('5/minute')
 async def google_login(request: Request):
     redirect_uri = 'http://localhost:10000/auth/google/callback'
     return await oauth2.google.authorize_redirect(request, redirect_uri)
 
 @router.get('/callback')
+@limiter.limit('5/minute')
 async def google_callback(request: Request, response: Response, session: Session = Depends(get_session)):
     try:
         token = await oauth2.google.authorize_access_token(request)
@@ -44,16 +45,10 @@ async def google_callback(request: Request, response: Response, session: Session
             session.commit()
 
         else:
-            user_id = uuid7()
             user = User(
-                id=user_id,
                 email=userinfo['email'],
                 oauth_id=userinfo['sub'],
-                provider='google',
-                profile=Profile(
-                    id=user_id,
-                    username=userinfo['name'],
-                )
+                provider='google'
             )
 
             session.add(user)

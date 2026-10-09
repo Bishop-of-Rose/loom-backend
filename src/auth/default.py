@@ -1,7 +1,6 @@
 from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, status, Request, Response, HTTPException
-from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -55,6 +54,10 @@ def login(request: Request,
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Invalid credentials')
 
+    if user.password is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail=f'Login requires {user.provider.capitalize()} OAuth2')
+
     if not verify_pw(data.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Invalid credentials')
@@ -88,7 +91,7 @@ def logout(response: Response,
 def refresh(response: Response,
             access_token: str = Depends(get_access_token),
             refresh_token: str = Depends(get_refresh_token)):
-    access_payload = decode_jwt_token(access_token, 'access')
+    access_payload = decode_jwt_token(access_token, 'access', True)
     refresh_payload = decode_jwt_token(refresh_token, 'refresh')
     refresh_jti = refresh_payload.get('jti')
     refresh_ttl = int(refresh_payload.get('exp') - datetime.now(UTC).timestamp())

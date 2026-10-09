@@ -14,10 +14,11 @@ class ProfileChange(BaseModel):
 
 class MinProfileResponse(BaseModel):
     id: UUID
+    username: str
+    bio: str
 
 class ProfileResponse(BaseModel):
     id: UUID
-    avatar_loc: str
     username: str
     bio: str
     connections: List[UUID]

@@ -14,7 +14,7 @@ router = APIRouter(
     tags=['Connections'],
 )
 
-@router.post('/{user_id}', status_code=status.HTTP_201_CREATED)
+@router.post('/{user_id}')
 def initiate_connection(user_id: UUID,
                         current_user: User = Depends(get_current_user),
                         session: Session = Depends(get_session)):
@@ -44,7 +44,7 @@ def initiate_connection(user_id: UUID,
 
     return {'message': 'Connection successfully requested'}
 
-@router.put('/{user_id}', status_code=status.HTTP_200_OK)
+@router.put('/{user_id}')
 def receive_connection(user_id: UUID,
                        current_user: User = Depends(get_current_user),
                        session: Session = Depends(get_session)):
@@ -61,7 +61,7 @@ def receive_connection(user_id: UUID,
     session.commit()
     return {'message': 'Connection successfully established'}
 
-@router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT)
+@router.delete('/{user_id}')
 def delete_connection(user_id: UUID,
                       current_user: User = Depends(get_current_user),
                       session: Session = Depends(get_session)):
