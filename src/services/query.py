@@ -1,11 +1,12 @@
 from typing import Tuple, Literal
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import Select
 from sqlalchemy.orm import Session
 
 from ..models import Profile, Post, Comment
-from ..schemas import QueryResponse
+from ..schemas import QueryResponse, QueryMeta
 from ..core.cursor import decode_cursor, encode_cursor
 
 def query_items(session: Session, Base: Profile | Post | Comment,
@@ -18,8 +19,8 @@ def query_items(session: Session, Base: Profile | Post | Comment,
             if direction == 'next':
                 stmt = stmt.where(Base.id < target_id).order_by(Base.id.desc())
 
-            else:
-                stmt = stmt.where(Base.id >= target_id).order_by(Base.id.asc())
+            elif direction == 'prev':
+                stmt = stmt.where(Base.id > target_id).order_by(Base.id.asc())
 
         except ValueError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -29,7 +30,7 @@ def query_items(session: Session, Base: Profile | Post | Comment,
         if direction == 'next':
             stmt = stmt.order_by(Base.id.desc())
 
-        else:
+        elif direction == 'prev':
             stmt = stmt.order_by(Base.id.asc())
 
     stmt = stmt.limit(limit + 1)
@@ -63,20 +64,25 @@ def query_items(session: Session, Base: Profile | Post | Comment,
     if items:
         if has_next:
             if direction == 'next':
-                next_cursor = encode_cursor(items[-1].id)
+                target = UUID(int=(int(result[-2].id) + int(result[-1].id)) // 2)
+                next_cursor = encode_cursor(target)
 
             else:
                 next_cursor = cursor
 
         if has_prev:
             if direction == 'prev':
-                prev_cursor = encode_cursor(result[-1].id)
+                target = UUID(int=(int(result[-2].id) + int(result[-1].id)) // 2)
+                prev_cursor = encode_cursor(target)
 
             else:
                 prev_cursor = cursor
 
     return QueryResponse(
         data=items,
-        next_cursor=next_cursor,
-        prev_cursor=prev_cursor
+        meta=QueryMeta(
+            count=len(items),
+            prev_cursor=prev_cursor,
+            next_cursor=next_cursor
+        )
     )

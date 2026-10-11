@@ -4,10 +4,14 @@ from pydantic import BaseModel
 
 T = TypeVar('T')
 
-class QueryResponse(BaseModel, Generic[T]):
-    data: List[T]
+class QueryMeta(BaseModel):
+    count: int
     prev_cursor: str | None
     next_cursor: str | None
+
+class QueryResponse(BaseModel, Generic[T]):
+    data: List[T]
+    meta: QueryMeta
 
     class Config:
         from_attributes = True

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Profile, Post, Comment
-from ..schemas import SearchResponse
+from ..schemas import SearchResponse, SearchMeta
 
 def search_items(session: Session, Base: Profile | Post | Comment,
                  item_ids: List[UUID]) -> SearchResponse[Profile | Post | Comment]:
@@ -18,5 +18,8 @@ def search_items(session: Session, Base: Profile | Post | Comment,
 
     return SearchResponse(
         data=items,
-        missing=diff
+        meta=SearchMeta(
+            count=len(items),
+            missing=diff
+        )
     )
