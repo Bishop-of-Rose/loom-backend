@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from .redis import client
+from ..core.redis import client
 
 def check(jti: UUID) -> bool:
     return client.get(f'blacklist:{jti}') is not None

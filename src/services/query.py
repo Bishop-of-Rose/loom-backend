@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Profile, Post, Comment
 from ..schemas import QueryResponse, QueryMeta
-from ..core.cursor import decode_cursor, encode_cursor
+from ..util.cursor import decode_cursor, encode_cursor
 
 def query_items(session: Session, Base: Profile | Post | Comment,
                 stmt: Select[Tuple[Profile | Post | Comment]],

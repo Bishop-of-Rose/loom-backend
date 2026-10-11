@@ -8,7 +8,7 @@ from ...services import get_user_by_email, get_user_by_oauth
 from ...core.database import get_session
 from ...core.config import settings
 from ...core.limiter import limiter
-from ...core.security import create_tokens
+from ...util.security import create_tokens
 
 oauth = OAuth()
 oauth.register(

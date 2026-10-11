@@ -8,13 +8,13 @@ from psycopg2.errors import UniqueViolation
 
 from ..models import User
 from ..schemas import RegistrationRequestForm, LoginForm, UserResponse
-from ..core import blacklist
+from ..util import blacklist
 from ..core.config import settings
 from ..core.database import get_session
 from ..core.dependencies import get_access_token, get_refresh_token
 from ..core.limiter import limiter
-from ..core.password import hash_pw, verify_pw
-from ..core.security import create_tokens, decode_jwt_token
+from ..util.password import hash_pw, verify_pw
+from ..util.security import create_tokens, decode_jwt_token
 
 router = APIRouter(
     prefix='/auth',

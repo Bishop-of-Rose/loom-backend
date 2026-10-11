@@ -2,10 +2,10 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from .blacklist import check
 from .database import get_session
-from .security import decode_jwt_token
 from ..models import User
+from ..util.blacklist import check
+from ..util.security import decode_jwt_token
 
 bearer_scheme = HTTPBearer()
 

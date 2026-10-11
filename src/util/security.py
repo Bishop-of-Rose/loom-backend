@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from jwt import encode, decode, ExpiredSignatureError, InvalidTokenError
 from fastapi import status, HTTPException
 
-from .config import settings
+from ..core.config import settings
 
 class Payload(BaseModel):
     sub: str
