@@ -13,8 +13,8 @@ class Post(Base):
     __tablename__ = "posts"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
-    author_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'), nullable=False)
-    content: Mapped[str] = mapped_column(nullable=False)
+    author_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'))
+    content: Mapped[str] = mapped_column()
     media: Mapped[List[str]] = mapped_column(ARRAY(String))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

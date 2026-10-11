@@ -28,10 +28,10 @@ def create_comment(comment: CommentCreate,
         session.refresh(comment)
 
     except IntegrityError as e:
-        print(e)
         if isinstance(e.orig, ForeignKeyViolation):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail='Target not found')
+            ref = 'post' if comment.commented is not None else 'comment'
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail=f'Comment reference {ref} not found')
 
     return comment
 

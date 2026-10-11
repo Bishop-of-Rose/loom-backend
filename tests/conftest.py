@@ -1,4 +1,4 @@
-from uuid import uuid4, uuid7
+from uuid import uuid4, uuid7, UUID
 from datetime import datetime, UTC, timedelta
 
 import jwt
@@ -13,7 +13,7 @@ from src.core.database import get_session
 from src.core.config import settings
 
 engine = create_engine(settings.TEST_DATABASE_URL)
-testing_session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+testing_session = sessionmaker(bind=engine)
 
 @pytest.fixture(scope='session', autouse=True)
 def setup_test_db():
@@ -35,7 +35,6 @@ def session():
             nested = connection.begin_nested()
 
     event.listen(session, 'after_transaction_end', lambda s, t: restart_savepoint)
-
     try:
         yield session
 
@@ -70,11 +69,11 @@ def registered_user(client):
 @pytest.fixture
 def logged_in(client, registered_user):
     data = {
-        'username': registered_user['email'],
+        'email': registered_user['email'],
         'password': registered_user['password']
     }
 
-    res = client.post('/auth/login', data=data)
+    res = client.post('/auth/login', json=data)
     access_token = res.json()['access_token']
     refresh_token = res.cookies.get('refresh_token')
 
@@ -93,47 +92,18 @@ def logged_out(client, logged_in):
     return logged_in
 
 @pytest.fixture
-def random_expired_tokens():
-    sub = str(uuid7())
-    current_time = datetime.now(UTC)
-
+def random_expired_tokens(user_id: UUID = uuid7(), current_time: datetime = datetime.now(UTC)):
     access_payload = {
-        'sub': sub,
+        'sub': str(user_id),
         'jti': str(uuid4()),
         'exp': current_time,
         'type': 'access'
     }
 
     refresh_payload = {
-        'sub': sub,
+        'sub': str(user_id),
         'jti': str(uuid4()),
         'exp': current_time,
-        'type': 'refresh'
-    }
-
-    access_token = jwt.encode(access_payload, settings.SECRET_KEY, settings.ALGORITHM)
-    refresh_token = jwt.encode(refresh_payload, settings.SECRET_KEY, settings.ALGORITHM)
-
-    return access_token, refresh_token
-
-@pytest.fixture
-def random_unmatched_tokens():
-    sub = str(uuid7())
-    current_time = datetime.now(UTC)
-    access_exp = current_time + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_exp = current_time + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-
-    access_payload = {
-        'sub': sub,
-        'jti': str(uuid4()),
-        'exp': access_exp,
-        'type': 'access'
-    }
-
-    refresh_payload = {
-        'sub': sub,
-        'jti': str(uuid4()),
-        'exp': refresh_exp,
         'type': 'refresh'
     }
 

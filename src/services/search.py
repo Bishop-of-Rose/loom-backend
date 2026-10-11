@@ -8,7 +8,7 @@ from ..models import Profile, Post, Comment
 from ..schemas import SearchResponse
 
 def search_items(session: Session, Base: Profile | Post | Comment,
-                 item_ids: List[UUID]) -> SearchResponse:
+                 item_ids: List[UUID]) -> SearchResponse[Profile | Post | Comment]:
     stmt = select(Base).where(Base.id.in_(item_ids))
     items = list(session.scalars(stmt).all())
 

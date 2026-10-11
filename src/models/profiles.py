@@ -22,8 +22,9 @@ class Profile(Base):
         'Connection',
         lazy='selectin',
         primaryjoin=lambda: (
-            (Profile.id == foreign(Connection.person_one)) | (Profile.id == foreign(Connection.person_two))
+            (Profile.id == foreign(Connection.initiator_id)) | (Profile.id == foreign(Connection.recipient_id))
         ),
+        order_by=Connection.created_at,
         viewonly=True
     )
 

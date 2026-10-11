@@ -6,7 +6,8 @@ T = TypeVar('T')
 
 class QueryResponse(BaseModel, Generic[T]):
     data: List[T]
-    cursor: str | None
+    prev_cursor: str | None
+    next_cursor: str | None
 
     class Config:
         from_attributes = True

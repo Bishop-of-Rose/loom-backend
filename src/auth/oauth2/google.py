@@ -1,14 +1,24 @@
+from authlib.integrations.starlette_client import OAuth
 from authlib.integrations.base_client import OAuthError
 from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 
-from .base import oauth2
 from ...models import User
-from ...services import get_user_by_oauth_id, get_user_by_email
+from ...services import get_user_by_email, get_user_by_oauth
 from ...core.database import get_session
 from ...core.config import settings
 from ...core.limiter import limiter
 from ...core.security import create_tokens
+
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=settings.GOOGLE_CLIENT_ID,
+    client_secret=settings.GOOGLE_CLIENT_SECRET,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
 router = APIRouter(
     prefix='/auth/google',
     tags=['Google OAuth2']
@@ -18,13 +28,13 @@ router = APIRouter(
 @limiter.limit('5/minute')
 async def google_login(request: Request):
     redirect_uri = 'http://localhost:10000/auth/google/callback'
-    return await oauth2.google.authorize_redirect(request, redirect_uri)
+    return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @router.get('/callback')
 @limiter.limit('5/minute')
 async def google_callback(request: Request, response: Response, session: Session = Depends(get_session)):
     try:
-        token = await oauth2.google.authorize_access_token(request)
+        token = await oauth.google.authorize_access_token(request)
 
     except OAuthError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
@@ -36,7 +46,7 @@ async def google_callback(request: Request, response: Response, session: Session
                             detail='Failed to fetch Google user info')
 
 
-    user = get_user_by_oauth_id(session, userinfo['sub'])
+    user = get_user_by_oauth(session, userinfo['sub'], 'google')
     if not user:
         user = get_user_by_email(session, userinfo['email'])
         if user:

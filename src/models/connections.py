@@ -1,6 +1,7 @@
 from uuid import UUID
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, CheckConstraint, text
+from sqlalchemy import ForeignKey, CheckConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from . import Base
@@ -8,11 +9,12 @@ from . import Base
 class Connection(Base):
     __tablename__ = "connections"
 
-    person_one: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'), primary_key=True)
-    person_two: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'), primary_key=True)
-    initiator_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'), nullable=False)
-    recipient_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'), nullable=False)
-    is_active: Mapped[bool] = mapped_column(server_default=text('false'))
+    person_one: Mapped[UUID] = mapped_column(primary_key=True)
+    person_two: Mapped[UUID] = mapped_column(primary_key=True)
+    initiator_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'))
+    recipient_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'))
+    is_active: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     __table_args__ = (
         CheckConstraint('person_one < person_two', name='ck_uuid_order'),

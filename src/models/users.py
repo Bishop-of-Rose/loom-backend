@@ -11,10 +11,10 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
-    email: Mapped[str] = mapped_column(nullable=False, unique=True)
-    password: Mapped[str] = mapped_column(nullable=True)
-    oauth_id: Mapped[str] = mapped_column(nullable=True)
-    provider: Mapped[str] = mapped_column(nullable=True)
+    email: Mapped[str] = mapped_column(unique=True)
+    password: Mapped[str | None] = mapped_column()
+    oauth_id: Mapped[str | None] = mapped_column()
+    provider: Mapped[str | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

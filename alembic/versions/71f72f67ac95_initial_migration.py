@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: 689d994c6a35
+Revision ID: 71f72f67ac95
 Revises: 
-Create Date: 2026-10-08 10:59:48.321240
+Create Date: 2026-10-11 11:35:48.388680
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '689d994c6a35'
+revision: str = '71f72f67ac95'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -47,13 +47,12 @@ def upgrade() -> None:
     sa.Column('person_two', sa.Uuid(), nullable=False),
     sa.Column('initiator_id', sa.Uuid(), nullable=False),
     sa.Column('recipient_id', sa.Uuid(), nullable=False),
-    sa.Column('is_active', sa.Boolean(), server_default=sa.text('false'), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.CheckConstraint('(initiator_id = person_one AND recipient_id = person_two) OR (initiator_id = person_two AND recipient_id = person_one)', name='ck_initiator_recipient_match_pk'),
     sa.CheckConstraint('initiator_id != recipient_id', name='ck_no_self_connection'),
     sa.CheckConstraint('person_one < person_two', name='ck_uuid_order'),
     sa.ForeignKeyConstraint(['initiator_id'], ['profiles.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['person_one'], ['profiles.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['person_two'], ['profiles.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['recipient_id'], ['profiles.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('person_one', 'person_two')
     )

@@ -91,13 +91,13 @@ def logout(response: Response,
 def refresh(response: Response,
             access_token: str = Depends(get_access_token),
             refresh_token: str = Depends(get_refresh_token)):
-    access_payload = decode_jwt_token(access_token, 'access', True)
+    access_payload = decode_jwt_token(access_token, 'access')
     refresh_payload = decode_jwt_token(refresh_token, 'refresh')
     refresh_jti = refresh_payload.get('jti')
     refresh_ttl = int(refresh_payload.get('exp') - datetime.now(UTC).timestamp())
     if blacklist.check(refresh_jti):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail='Refresh token revoked')
+                            detail='Refresh token already revoked')
 
     blacklist.ban(refresh_jti, refresh_ttl)
     response.delete_cookie('refresh_token')
