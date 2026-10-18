@@ -35,12 +35,19 @@ async def login(request: Request,
                             detail='Invalid credentials')
 
     session_id = secrets.token_urlsafe(64)
+    unique_id = str(user.id)
+    real_ip = request.headers.get('X-FORWARDED-FOR', getattr(request.client, 'host', '127.0.0.1'))
     session_data = {
         'user_id': str(user.id),
         'email': user.email
     }
 
-    store.add(session_id, session_data)
+    if store.match(real_ip, unique_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='User already logged in')
+
+    store.add(real_ip, unique_id, session_id, session_data)
+
     response.set_cookie(
         key='session_id',
         value=session_id,

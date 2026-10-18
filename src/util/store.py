@@ -1,15 +1,30 @@
-from typing import Dict
+from typing import Dict, Any
 
 from ..core.redis import client
 
-def get(session_id: str) -> Dict | None:
-    session_data = client.hgetall(f'session:{session_id}')
-    client.expire(f'session:{session_id}', 3600)
-    return session_data
+def match(real_ip: str, unique_id: str):
+    for key in client.scan_iter(match=f'session:{real_ip}:{unique_id}*'):
+        if key:
+            return True
 
-def add(session_id: str, session_data: Dict) -> None:
-    client.hset(f'session:{session_id}', mapping=session_data)
-    client.expire(f'session:{session_id}', 3600)
+    return False
+
+def get(session_id: str) -> Dict | None:
+    for key in client.scan_iter(match=f'session*{session_id}'):
+        if key:
+            raw_data = client.hgetall(key)
+            session_data = {}
+            client.expire(key, 3600)
+            for i, value in raw_data.items():
+                session_data[str(i.decode())] = str(value.decode())
+
+            return session_data
+
+    return None
+
+def add(real_ip: str, unique_id: str, session_id: str, session_data: Dict) -> None:
+    client.hset(f'session:{real_ip}:{unique_id}:{session_id}', mapping=session_data)
+    client.expire(f'session:{real_ip}:{unique_id}:{session_id}', 3600)
 
 def remove(session_id: str) -> None:
     client.delete(f'session:{session_id}')
