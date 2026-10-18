@@ -5,7 +5,6 @@ from pydantic import BaseModel
 T = TypeVar('T')
 
 class QueryMeta(BaseModel):
-    count: int
     prev_cursor: str | None
     next_cursor: str | None
 

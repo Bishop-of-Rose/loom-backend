@@ -2,7 +2,7 @@ from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, status, Request, Response, HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import load_only
+from sqlalchemy.orm import load_only, noload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from asyncpg.exceptions import UniqueViolationError
@@ -15,10 +15,10 @@ from ..core.database import get_session
 from ..core.dependencies import get_access_token, get_refresh_token
 from ..core.limiter import limiter
 from ..util.password import hash_pw, verify_pw
-from ..util.security import create_tokens, decode_jwt_token
+from ..util.security import encode_jwt_token, decode_jwt_token
 
 router = APIRouter(
-    prefix='/auth',
+    prefix='/auth/jwt',
     tags=['JWT Authentication']
 )
 
@@ -48,7 +48,8 @@ async def login(request: Request,
                 response: Response,
                 data: LoginForm,
                 session: AsyncSession = Depends(get_session)):
-    stmt = select(User).where(User.email == data.email).options(load_only(User.id, User.password))
+    stmt = select(User).where(User.email == data.email).options(load_only(User.id, User.password),
+                                                                noload(User.profile))
     user = (await session.scalars(stmt)).one_or_none()
 
     if user is None:
@@ -59,12 +60,12 @@ async def login(request: Request,
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Invalid credentials')
 
-    access_token, refresh_token = create_tokens(user.id)
+    access_token = encode_jwt_token(user.id, 'access')
+    refresh_token = encode_jwt_token(user.id, 'refresh')
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
         httponly=True,
-        secure=True,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 
@@ -99,12 +100,12 @@ def refresh(response: Response,
     response.delete_cookie('refresh_token')
 
     user_id = access_payload.get('sub')
-    access_token, refresh_token = create_tokens(user_id)
+    access_token = encode_jwt_token(user_id, 'access')
+    refresh_token = encode_jwt_token(user_id, 'refresh')
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
         httponly=True,
-        secure=True,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 

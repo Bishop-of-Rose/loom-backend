@@ -81,7 +81,6 @@ async def query_items(session: AsyncSession, Base: Profile | Post | Comment,
     return QueryResponse(
         data=items,
         meta=QueryMeta(
-            count=len(items),
             prev_cursor=prev_cursor,
             next_cursor=next_cursor
         )

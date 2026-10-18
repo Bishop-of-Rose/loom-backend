@@ -6,7 +6,6 @@ from pydantic import BaseModel
 T = TypeVar('T')
 
 class SearchMeta(BaseModel):
-    count: int
     missing: List[UUID]
 
 class SearchResponse(BaseModel, Generic[T]):

@@ -19,7 +19,6 @@ async def search_items(session: AsyncSession, Base: Profile | Post | Comment,
     return SearchResponse(
         data=items,
         meta=SearchMeta(
-            count=len(items),
             missing=diff
         )
     )

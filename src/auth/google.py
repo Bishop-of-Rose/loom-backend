@@ -8,7 +8,7 @@ from ..services import get_user_by_email, get_user_by_oauth
 from ..core.database import get_session
 from ..core.config import settings
 from ..core.limiter import limiter
-from ..util.security import create_tokens
+from ..util.security import encode_jwt_token
 
 oauth = OAuth()
 oauth.register(
@@ -52,23 +52,22 @@ async def google_callback(request: Request,
     if not user:
         user = await get_user_by_email(session, userinfo['email'])
         if user:
-            user.oauth_id = userinfo['sub']
-            user.provider = 'google'
+            user.google_id = userinfo['sub']
             await session.commit()
             await session.refresh(user)
 
         else:
             user = User(
                 email=userinfo['email'],
-                oauth_id=userinfo['sub'],
-                provider='google'
+                google_id=userinfo['sub'],
             )
 
             session.add(user)
             await session.commit()
             await session.refresh(user)
 
-    access_token, refresh_token = create_tokens(user.id)
+    access_token = encode_jwt_token(user.id, 'access')
+    refresh_token = encode_jwt_token(user.id, 'refresh')
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
