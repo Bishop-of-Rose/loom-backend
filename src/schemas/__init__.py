@@ -1,4 +1,4 @@
-from .users import RegistrationRequestForm, ActivationRequestForm, LoginForm, UserResponse
+from .users import RegistrationForm, LoginForm, UserResponse
 from .profiles import ProfileInit, ProfileChange, ProfileResponse
 from .posts import PostCreate, PostUpdate, PostResponse
 from .comments import CommentCreate, CommentUpdate, CommentResponse

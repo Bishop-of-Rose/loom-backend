@@ -1,2 +1,1 @@
-from . import default
-from .oauth2 import google
+from . import default, google

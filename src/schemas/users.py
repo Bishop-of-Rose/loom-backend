@@ -5,20 +5,16 @@ from pydantic import BaseModel, EmailStr
 
 from .profiles import ProfileResponse
 
-class RegistrationRequestForm(BaseModel):
+class RegistrationForm(BaseModel):
     email: EmailStr
     password: str
 
-class ActivationRequestForm(BaseModel):
-    email: EmailStr
-    token: str
-
-class LoginForm(RegistrationRequestForm):
+class LoginForm(RegistrationForm):
     pass
 
 class UserResponse(BaseModel):
     id: UUID
-    email: EmailStr
+    email: str
     created_at: datetime
     updated_at: datetime
     profile: ProfileResponse | None

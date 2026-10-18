@@ -1,7 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    ENVIRONMENT: str
     ORIGIN: str
     TEST_DATABASE_URL: str
     DATABASE_URL: str
@@ -14,18 +13,9 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str
     SESSION_SECRET: str
 
-    @property
-    def IS_DEV(self):
-        return self.ENVIRONMENT == 'dev'
-
-    @property
-    def IS_PROD(self):
-        return self.ENVIRONMENT == 'prod'
-
     model_config = SettingsConfigDict(
         env_file='.env',
-        env_file_encoding='utf-8',
-        extra='ignore'
+        env_file_encoding='utf-8'
     )
 
 settings = Settings()

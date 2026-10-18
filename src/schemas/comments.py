@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import Set
 from uuid import UUID
 
 from pydantic import BaseModel, model_validator
@@ -7,10 +7,9 @@ from pydantic import BaseModel, model_validator
 from .profiles import MinProfileResponse
 
 class CommentCreate(BaseModel):
-    commented: UUID | None
-    replied: UUID | None
+    commented: UUID | None = None
+    replied: UUID | None = None
     content: str
-    media: List[str] = []
 
     @model_validator(mode='after')
     def ck_comment_target(self):
@@ -21,16 +20,15 @@ class CommentCreate(BaseModel):
 
 class CommentUpdate(BaseModel):
     content: str
-    media: List[str] = []
 
 class CommentResponse(BaseModel):
     id: UUID
     commented: UUID | None
     replied: UUID | None
     content: str
-    media: List[str] = []
-    likes: List[UUID]
-    dislikes: List[UUID]
+    media: Set[str]
+    likes_count: int
+    dislikes_count: int
     created_at: datetime
     updated_at: datetime
     author: MinProfileResponse

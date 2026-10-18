@@ -1,14 +1,14 @@
 from authlib.integrations.starlette_client import OAuth
 from authlib.integrations.base_client import OAuthError
 from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import User
-from ...services import get_user_by_email, get_user_by_oauth
-from ...core.database import get_session
-from ...core.config import settings
-from ...core.limiter import limiter
-from ...util.security import create_tokens
+from ..models import User
+from ..services import get_user_by_email, get_user_by_oauth
+from ..core.database import get_session
+from ..core.config import settings
+from ..core.limiter import limiter
+from ..util.security import create_tokens
 
 oauth = OAuth()
 oauth.register(
@@ -21,7 +21,7 @@ oauth.register(
 
 router = APIRouter(
     prefix='/auth/google',
-    tags=['Google OAuth2']
+    tags=['Google OAuth2 Authentication']
 )
 
 @router.get('/login')
@@ -32,7 +32,9 @@ async def google_login(request: Request):
 
 @router.get('/callback')
 @limiter.limit('5/minute')
-async def google_callback(request: Request, response: Response, session: Session = Depends(get_session)):
+async def google_callback(request: Request,
+                          response: Response,
+                          session: AsyncSession = Depends(get_session)):
     try:
         token = await oauth.google.authorize_access_token(request)
 
@@ -41,18 +43,19 @@ async def google_callback(request: Request, response: Response, session: Session
                             detail=f'Google OAuth login failed: {e}')
 
     userinfo = token.get('userinfo')
-    if not userinfo or not userinfo.get('sub') or not userinfo.get('email') or not userinfo.get('name'):
+    if not userinfo or not userinfo.get('sub') or not userinfo.get('email'):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Failed to fetch Google user info')
 
 
-    user = get_user_by_oauth(session, userinfo['sub'], 'google')
+    user = await get_user_by_oauth(session, userinfo['sub'], 'google')
     if not user:
-        user = get_user_by_email(session, userinfo['email'])
+        user = await get_user_by_email(session, userinfo['email'])
         if user:
             user.oauth_id = userinfo['sub']
             user.provider = 'google'
-            session.commit()
+            await session.commit()
+            await session.refresh(user)
 
         else:
             user = User(
@@ -62,8 +65,8 @@ async def google_callback(request: Request, response: Response, session: Session
             )
 
             session.add(user)
-            session.commit()
-            session.refresh(user)
+            await session.commit()
+            await session.refresh(user)
 
     access_token, refresh_token = create_tokens(user.id)
     response.set_cookie(
@@ -71,7 +74,6 @@ async def google_callback(request: Request, response: Response, session: Session
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite='lax',
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 

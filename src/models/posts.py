@@ -1,9 +1,9 @@
-from typing import List
+from typing import Set
 from uuid import uuid7, UUID
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, func, ARRAY, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import ForeignKey, func, ARRAY, String, select
+from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 
 from . import Base
 from .profiles import Profile
@@ -14,26 +14,28 @@ class Post(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     author_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'))
+    title: Mapped[str] = mapped_column()
     content: Mapped[str] = mapped_column()
-    media: Mapped[List[str]] = mapped_column(ARRAY(String))
+    media: Mapped[Set[str]] = mapped_column(ARRAY(String), default=[])
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
-    author: Mapped['Profile'] = relationship(
+    author: Mapped[Profile] = relationship(
         'Profile',
         lazy='joined',
         viewonly=True
     )
-    _votes: Mapped[List['Vote']] = relationship(
-        'Vote',
-        lazy='selectin',
-        viewonly=True
+    likes_count: Mapped[int] = column_property(
+        select(func.count(Vote.id))
+        .where(Vote.post_id == id)
+        .where(Vote.type == 'LIKE')
+        .correlate_except(Vote)
+        .scalar_subquery()
     )
-
-    @property
-    def likes(self) -> List[UUID]:
-        return [vote.author_id for vote in self._votes if vote.type == 'LIKE']
-
-    @property
-    def dislikes(self) -> List[UUID]:
-        return [vote.author_id for vote in self._votes if vote.type == 'DISLIKE']
+    dislikes_count: Mapped[int] = column_property(
+        select(func.count(Vote.id))
+        .where(Vote.post_id == id)
+        .where(Vote.type == 'DISLIKE')
+        .correlate_except(Vote)
+        .scalar_subquery()
+    )

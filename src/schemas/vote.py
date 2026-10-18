@@ -3,8 +3,8 @@ from uuid import UUID
 from pydantic import BaseModel, model_validator
 
 class VoteBase(BaseModel):
-    post_id: UUID | None
-    comment_id: UUID | None
+    post_id: UUID | None = None
+    comment_id: UUID | None = None
 
     @model_validator(mode='after')
     def ck_comment_target(self):

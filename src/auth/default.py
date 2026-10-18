@@ -2,12 +2,13 @@ from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, status, Request, Response, HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import load_only
 from sqlalchemy.exc import IntegrityError
-from psycopg2.errors import UniqueViolation
+from sqlalchemy.ext.asyncio import AsyncSession
+from asyncpg.exceptions import UniqueViolationError
 
 from ..models import User
-from ..schemas import RegistrationRequestForm, LoginForm, UserResponse
+from ..schemas import RegistrationForm, LoginForm, UserResponse
 from ..util import blacklist
 from ..core.config import settings
 from ..core.database import get_session
@@ -18,24 +19,24 @@ from ..util.security import create_tokens, decode_jwt_token
 
 router = APIRouter(
     prefix='/auth',
-    tags=['Authentication']
+    tags=['JWT Authentication']
 )
 
 @router.post('/register' , status_code=status.HTTP_201_CREATED, response_model=UserResponse)
 @limiter.limit('10/minute')
-def register(request: Request,
-             response: Response,
-             user: RegistrationRequestForm,
-             session: Session = Depends(get_session)):
+async def register(request: Request,
+                   response: Response,
+                   user: RegistrationForm,
+                   session: AsyncSession = Depends(get_session)):
     user.password = hash_pw(user.password)
     user = User(**user.model_dump())
     try:
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        await session.commit()
+        await session.refresh(user)
 
     except IntegrityError as e:
-        if isinstance(e.orig, UniqueViolation):
+        if isinstance(getattr(e.orig, '__cause__', None), UniqueViolationError):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail='User with that email already exists')
 
@@ -43,22 +44,18 @@ def register(request: Request,
 
 @router.post('/login')
 @limiter.limit('10/minute')
-def login(request: Request,
-          response: Response,
-          data: LoginForm,
-          session: Session = Depends(get_session)):
-    stmt = select(User).where(User.email == data.email)
-    user = session.scalars(stmt).one_or_none()
+async def login(request: Request,
+                response: Response,
+                data: LoginForm,
+                session: AsyncSession = Depends(get_session)):
+    stmt = select(User).where(User.email == data.email).options(load_only(User.id, User.password))
+    user = (await session.scalars(stmt)).one_or_none()
 
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Invalid credentials')
 
-    if user.password is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'Login requires {user.provider.capitalize()} OAuth2')
-
-    if not verify_pw(data.password, user.password):
+    if user.password is None or not verify_pw(data.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Invalid credentials')
 
@@ -68,7 +65,6 @@ def login(request: Request,
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite='lax',
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 
@@ -109,7 +105,6 @@ def refresh(response: Response,
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite='lax',
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 

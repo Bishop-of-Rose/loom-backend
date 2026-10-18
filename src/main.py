@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from . import auth
 from .core.config import settings
 from .core.limiter import limiter
-from .routers import account, query, search, profiles, posts, comments, connections, vote
+from .routers import account, query, search, profiles, posts, comments, vote
 
 app = FastAPI(
     title='Loom',
@@ -34,13 +34,12 @@ app.add_middleware(
 app.include_router(auth.default.router)
 app.include_router(auth.google.router)
 app.include_router(account.router)
-app.include_router(query.router)
-app.include_router(search.router)
 app.include_router(profiles.router)
 app.include_router(posts.router)
 app.include_router(comments.router)
-app.include_router(connections.router)
 app.include_router(vote.router)
+app.include_router(query.router)
+app.include_router(search.router)
 
 @app.get('/', tags=['Health'])
 def root():

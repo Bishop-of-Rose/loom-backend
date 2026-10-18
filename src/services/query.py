@@ -3,16 +3,16 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import Select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Profile, Post, Comment
 from ..schemas import QueryResponse, QueryMeta
 from ..util.cursor import decode_cursor, encode_cursor
 
-def query_items(session: Session, Base: Profile | Post | Comment,
-                stmt: Select[Tuple[Profile | Post | Comment]],
-                cursor: str | None, direction: Literal['prev', 'next'],
-                limit: int) -> QueryResponse[Profile | Post | Comment]:
+async def query_items(session: AsyncSession, Base: Profile | Post | Comment,
+                      stmt: Select[Tuple[Profile | Post | Comment]],
+                      cursor: str | None, direction: Literal['prev', 'next'],
+                      limit: int) -> QueryResponse[Profile | Post | Comment]:
     if cursor is not None:
         try:
             target_id = decode_cursor(cursor)
@@ -34,7 +34,7 @@ def query_items(session: Session, Base: Profile | Post | Comment,
             stmt = stmt.order_by(Base.id.asc())
 
     stmt = stmt.limit(limit + 1)
-    result = list(session.scalars(stmt).all())
+    result = list((await session.scalars(stmt)).all())
 
     has_more = len(result) > limit
     has_next = False

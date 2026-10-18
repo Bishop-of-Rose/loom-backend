@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status, APIRouter
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import User, Post
 from ..schemas import PostCreate, PostUpdate, PostResponse
@@ -14,22 +14,22 @@ router = APIRouter(
 )
 
 @router.post('', status_code=status.HTTP_201_CREATED, response_model=PostResponse)
-def create_post(post: PostCreate,
-                current_user: User = Depends(get_current_user),
-                session: Session = Depends(get_session)):
+async def create_post(post: PostCreate,
+                      current_user: User = Depends(get_current_user),
+                      session: AsyncSession = Depends(get_session)):
     post = Post(**post.model_dump())
     post.author_id = current_user.id
 
     session.add(post)
-    session.commit()
-    session.refresh(post)
+    await session.commit()
+    await session.refresh(post)
     return post
 
 @router.put('/{post_id}', response_model=PostResponse)
-def update_post(post_id: UUID, edit: PostUpdate,
-                current_user: User = Depends(get_current_user),
-                session: Session = Depends(get_session)):
-    post = session.get(Post, post_id)
+async def update_post(post_id: UUID, edit: PostUpdate,
+                      current_user: User = Depends(get_current_user),
+                      session: AsyncSession = Depends(get_session)):
+    post = await session.get(Post, post_id)
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail='Post not found')
@@ -39,15 +39,15 @@ def update_post(post_id: UUID, edit: PostUpdate,
                             detail='Unauthorised to update this post')
 
     post.content = edit.content
-    session.commit()
-    session.refresh(post)
+    await session.commit()
+    await session.refresh(post)
     return post
 
 @router.delete('/{post_id}', status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(post_id: UUID,
+async def delete_post(post_id: UUID,
                 current_user: User = Depends(get_current_user),
-                session: Session = Depends(get_session)):
-    post = session.get(Post, post_id)
+                session: AsyncSession = Depends(get_session)):
+    post = await session.get(Post, post_id)
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail='Post not found')
@@ -56,6 +56,6 @@ def delete_post(post_id: UUID,
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail='Unauthorised to delete this post')
 
-    session.delete(post)
-    session.commit()
+    await session.delete(post)
+    await session.commit()
     return

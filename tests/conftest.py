@@ -1,7 +1,3 @@
-from uuid import uuid4, uuid7, UUID
-from datetime import datetime, UTC, timedelta
-
-import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -90,51 +86,3 @@ def logged_out(client, logged_in):
     )
 
     return logged_in
-
-@pytest.fixture
-def random_expired_tokens(user_id: UUID = uuid7(), current_time: datetime = datetime.now(UTC)):
-    access_payload = {
-        'sub': str(user_id),
-        'jti': str(uuid4()),
-        'exp': current_time,
-        'type': 'access'
-    }
-
-    refresh_payload = {
-        'sub': str(user_id),
-        'jti': str(uuid4()),
-        'exp': current_time,
-        'type': 'refresh'
-    }
-
-    access_token = jwt.encode(access_payload, settings.SECRET_KEY, settings.ALGORITHM)
-    refresh_token = jwt.encode(refresh_payload, settings.SECRET_KEY, settings.ALGORITHM)
-
-    return access_token, refresh_token
-
-@pytest.fixture
-def random_matched_tokens():
-    sub = str(uuid7())
-    jti = str(uuid4())
-    current_time = datetime.now(UTC)
-    access_exp = current_time + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_exp = current_time + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-
-    access_payload = {
-        'sub': sub,
-        'jti': jti,
-        'exp': access_exp,
-        'type': 'access'
-    }
-
-    refresh_payload = {
-        'sub': sub,
-        'jti': jti,
-        'exp': refresh_exp,
-        'type': 'refresh'
-    }
-
-    access_token = jwt.encode(access_payload, settings.SECRET_KEY, settings.ALGORITHM)
-    refresh_token = jwt.encode(refresh_payload, settings.SECRET_KEY, settings.ALGORITHM)
-
-    return access_token, refresh_token

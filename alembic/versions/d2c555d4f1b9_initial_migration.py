@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: 71f72f67ac95
+Revision ID: d2c555d4f1b9
 Revises: 
-Create Date: 2026-10-11 11:35:48.388680
+Create Date: 2026-10-18 12:48:40.264776
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '71f72f67ac95'
+revision: str = 'd2c555d4f1b9'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -36,29 +36,15 @@ def upgrade() -> None:
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('username', sa.String(), nullable=False),
     sa.Column('avatar', sa.String(), nullable=False),
-    sa.Column('bio', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('connections',
-    sa.Column('person_one', sa.Uuid(), nullable=False),
-    sa.Column('person_two', sa.Uuid(), nullable=False),
-    sa.Column('initiator_id', sa.Uuid(), nullable=False),
-    sa.Column('recipient_id', sa.Uuid(), nullable=False),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint('(initiator_id = person_one AND recipient_id = person_two) OR (initiator_id = person_two AND recipient_id = person_one)', name='ck_initiator_recipient_match_pk'),
-    sa.CheckConstraint('initiator_id != recipient_id', name='ck_no_self_connection'),
-    sa.CheckConstraint('person_one < person_two', name='ck_uuid_order'),
-    sa.ForeignKeyConstraint(['initiator_id'], ['profiles.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['recipient_id'], ['profiles.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('person_one', 'person_two')
-    )
     op.create_table('posts',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('author_id', sa.Uuid(), nullable=False),
+    sa.Column('title', sa.String(), nullable=False),
     sa.Column('content', sa.String(), nullable=False),
     sa.Column('media', sa.ARRAY(sa.String()), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
@@ -107,7 +93,6 @@ def downgrade() -> None:
     op.drop_table('votes')
     op.drop_table('comments')
     op.drop_table('posts')
-    op.drop_table('connections')
     op.drop_table('profiles')
     op.drop_table('users')
     # ### end Alembic commands ###
