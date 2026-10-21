@@ -1,4 +1,3 @@
-from typing import Dict, Literal
 from uuid import UUID, uuid4
 from datetime import datetime, UTC, timedelta
 
@@ -11,43 +10,39 @@ from ..core.config import settings
 class Payload(BaseModel):
     sub: str
     jti: str
+    iat: int
     exp: int
-    type: Literal['access', 'refresh']
 
-def encode_jwt_token(user_id: UUID, expected: Literal['access', 'refresh']) -> str:
-    diff = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES) if expected == 'access' else timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    exp = datetime.now(UTC) + diff
+def create_access_token(user_id: UUID) -> str:
+    iat = datetime.now(UTC)
+    exp = iat + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         'sub': str(user_id),
         'jti': str(uuid4()),
+        'iat': iat,
         'exp': exp,
-        'type': expected
     }
 
     token = jwt.encode(payload, settings.SECRET_KEY, settings.ALGORITHM)
     return token
 
-def decode_jwt_token(token: str, expected: Literal['access', 'refresh']) -> Dict:
-    if token is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                             detail=f'{expected.capitalize()} token missing')
-
+def verify_access_token(token: str):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, settings.ALGORITHM)
         payload = Payload.model_validate(payload).model_dump()
-        if payload['type'] != expected:
+        if payload['exp'] - payload['iat'] != settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60:
             raise ValueError
 
     except ValueError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'{expected.capitalize()} token form unadhered')
+                            detail=f'Expected access token form unadhered')
 
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'{expected.capitalize()} token expired')
+                            detail=f'Access token expired')
 
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'Invalid {expected} token')
+                            detail=f'Access token invalid')
 
     return payload

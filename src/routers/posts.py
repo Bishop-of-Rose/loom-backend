@@ -38,15 +38,18 @@ async def update_post(post_id: UUID, edit: PostUpdate,
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail='Unauthorised to update this post')
 
-    post.content = edit.content
+    edit = edit.model_dump(exclude_unset=True)
+    for field in edit:
+        setattr(post, field, edit[field])
+
     await session.commit()
     await session.refresh(post)
     return post
 
 @router.delete('/{post_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(post_id: UUID,
-                current_user: User = Depends(get_current_user),
-                session: AsyncSession = Depends(get_session)):
+                      current_user: User = Depends(get_current_user),
+                      session: AsyncSession = Depends(get_session)):
     post = await session.get(Post, post_id)
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,

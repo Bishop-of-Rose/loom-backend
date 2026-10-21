@@ -1,4 +1,5 @@
-from datetime import datetime, UTC
+import secrets
+import hashlib
 
 from fastapi import APIRouter, Depends, status, Request, Response, HTTPException
 from sqlalchemy import select
@@ -9,13 +10,13 @@ from asyncpg.exceptions import UniqueViolationError
 
 from ..models import User
 from ..schemas import RegistrationForm, LoginForm, UserResponse
-from ..util import blacklist
+from ..util import whitelist
 from ..core.config import settings
 from ..core.database import get_session
-from ..core.dependencies import get_access_token, get_refresh_token
+from ..core.dependencies import get_refresh_token
 from ..core.limiter import limiter
 from ..util.password import hash_pw, verify_pw
-from ..util.security import encode_jwt_token, decode_jwt_token
+from ..util.security import create_access_token
 
 router = APIRouter(
     prefix='/auth/jwt',
@@ -60,8 +61,11 @@ async def login(request: Request,
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Invalid credentials')
 
-    access_token = encode_jwt_token(user.id, 'access')
-    refresh_token = encode_jwt_token(user.id, 'refresh')
+    access_token = create_access_token(user.id)
+    refresh_token = secrets.token_hex(32)
+    hashed = hashlib.sha256(refresh_token.encode()).hexdigest()
+    whitelist.add(hashed, settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60, user.id)
+
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
@@ -73,35 +77,29 @@ async def login(request: Request,
 
 @router.post('/logout')
 def logout(response: Response,
-           access_token: str = Depends(get_access_token),
            refresh_token: str = Depends(get_refresh_token)):
-    access_payload = decode_jwt_token(access_token, 'access')
-    refresh_payload = decode_jwt_token(refresh_token, 'refresh')
-    access_jti, access_ttl = access_payload.get('jti'), int(access_payload.get('exp') - datetime.now(UTC).timestamp())
-    refresh_jti, refresh_ttl = refresh_payload.get('jti'), int(refresh_payload.get('exp') - datetime.now(UTC).timestamp())
-    blacklist.ban(access_jti, access_ttl)
-    blacklist.ban(refresh_jti, refresh_ttl)
+    hashed = hashlib.sha256(refresh_token.encode()).hexdigest()
+    whitelist.remove(hashed)
     response.delete_cookie('refresh_token')
     return
 
 @router.post('/refresh')
 def refresh(response: Response,
-            access_token: str = Depends(get_access_token),
             refresh_token: str = Depends(get_refresh_token)):
-    access_payload = decode_jwt_token(access_token, 'access')
-    refresh_payload = decode_jwt_token(refresh_token, 'refresh')
-    refresh_jti = refresh_payload.get('jti')
-    refresh_ttl = int(refresh_payload.get('exp') - datetime.now(UTC).timestamp())
-    if blacklist.check(refresh_jti):
+    hashed = hashlib.sha256(refresh_token.encode()).hexdigest()
+    user_id = whitelist.get(hashed)
+    if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail='Refresh token already revoked')
+                            detail='Refresh token expired or revoked')
 
-    blacklist.ban(refresh_jti, refresh_ttl)
+    whitelist.remove(hashed)
     response.delete_cookie('refresh_token')
 
-    user_id = access_payload.get('sub')
-    access_token = encode_jwt_token(user_id, 'access')
-    refresh_token = encode_jwt_token(user_id, 'refresh')
+    access_token = create_access_token(user_id)
+    refresh_token = secrets.token_hex(32)
+    hashed = hashlib.sha256(refresh_token.encode()).hexdigest()
+    whitelist.add(hashed, settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60, user_id)
+
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,

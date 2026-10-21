@@ -1,88 +1,118 @@
+from typing import AsyncGenerator, Dict, Tuple, Any
+
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
+from httpx2 import ASGITransport, AsyncClient
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from src.main import app
 from src.models import Base
 from src.core.database import get_session
 from src.core.config import settings
 
-engine = create_engine(settings.TEST_DATABASE_URL)
-testing_session = sessionmaker(bind=engine)
+engine = create_async_engine(settings.TEST_DATABASE_URL)
+testing_local = async_sessionmaker(bind=engine)
+
+@pytest.fixture(scope='session')
+def anyio_backend() -> str:
+    return 'asyncio'
 
 @pytest.fixture(scope='session', autouse=True)
-def setup_test_db():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+async def setup_test_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     yield
 
-@pytest.fixture(scope='function')
-def session():
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = testing_session(bind=connection)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
-    nested = connection.begin_nested()
+@pytest.fixture
+async def get_test_session() -> AsyncGenerator[AsyncSession, None]:
+    connection = await engine.connect()
+    transaction = await connection.begin()
+    session = testing_local(bind=connection)
 
-    def restart_savepoint():
+    nested = await connection.begin_nested()
+
+    async def restart_savepoint():
         nonlocal nested
         if not nested.is_active:
-            nested = connection.begin_nested()
+            nested = await connection.begin_nested()
 
-    event.listen(session, 'after_transaction_end', lambda s, t: restart_savepoint)
+    event.listen(session.sync_session, 'after_transaction_end', lambda s, t: restart_savepoint)
     try:
         yield session
 
     finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
+        await session.close()
+        await transaction.rollback()
+        await connection.close()
 
-@pytest.fixture(scope='function')
-def client(session):
-    def override_get_session():
+@pytest.fixture
+async def client(get_test_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    async def override_get_session():
         try:
-            yield session
+            yield get_test_session
         finally:
-            session.close()
+            await get_test_session.close()
 
     app.dependency_overrides[get_session] = override_get_session
-    yield TestClient(app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url='http://test') as client:
+        yield client
     app.dependency_overrides.clear()
 
 @pytest.fixture
-def registered_user(client):
-    data = {
-        'email': 'registeredemail123@gmail.com',
-        'password': 'password'
+async def registered_user(client: AsyncClient) -> Dict[str, Any]:
+    payload = {
+        'email': 'user@example.com',
+        'password': 'random_password',
     }
-
-    res = client.post('/auth/register', json=data)
-    data.update(res.json())
-    return data
+    res = await client.post('/auth/jwt/register', json=payload)
+    payload.update(res.json())
+    return payload
 
 @pytest.fixture
-def logged_in(client, registered_user):
-    data = {
-        'email': registered_user['email'],
-        'password': registered_user['password']
+async def auth_header(client: AsyncClient, registered_user: Dict[str, Any]) -> Dict[str, str]:
+    res = await client.post('/auth/jwt/login', json=registered_user)
+    access_token = res.json().get('access_token')
+    authorization_header = {'Authorization': 'Bearer ' + access_token}
+    return authorization_header
+
+@pytest.fixture
+async def initiated_profile(client: AsyncClient, registered_user: Dict[str, Any], auth_header: Dict[str, str]) -> Dict[str, Any]:
+    payload = {
+        'username': 'random_username'
     }
+    res = await client.post(
+        '/profiles',
+        headers=auth_header,
+        json=payload
+    )
+    registered_user['profile'] = res.json()
+    return registered_user
 
-    res = client.post('/auth/login', json=data)
-    access_token = res.json()['access_token']
+@pytest.fixture
+async def init_auth_header(client: AsyncClient, initiated_profile: Dict[str, Any]) -> Dict[str, str]:
+    res = await client.post('/auth/jwt/login', json=initiated_profile)
+    access_token = res.json().get('access_token')
+    authorization_header = {'Authorization': 'Bearer ' + access_token}
+    return authorization_header
+
+@pytest.fixture
+async def logged_in(client: AsyncClient, registered_user: Dict[str, Any]) -> Tuple[str, str]:
+    res = await client.post('/auth/jwt/login', json=registered_user)
+    access_token = res.json().get('access_token')
     refresh_token = res.cookies.get('refresh_token')
-
     return access_token, refresh_token
 
 @pytest.fixture
-def logged_out(client, logged_in):
-    access_token, refresh_token = logged_in
+async def logged_out():
+    pass
 
-    res = client.post(
-        '/auth/logout',
-        headers={'Authorization': 'Bearer ' + access_token},
-        cookies={'refresh_token': refresh_token}
-    )
-
-    return logged_in
+@pytest.fixture(autouse=True)
+async def reset_rate_limiter():
+    yield
+    if hasattr(app.state, "limiter"):
+        app.state.limiter._storage.reset()

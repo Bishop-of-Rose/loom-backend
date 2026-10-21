@@ -33,7 +33,6 @@ app.add_middleware(
 
 app.include_router(auth.default.router)
 app.include_router(auth.google.router)
-app.include_router(auth.session.router)
 app.include_router(account.router)
 app.include_router(profiles.router)
 app.include_router(posts.router)

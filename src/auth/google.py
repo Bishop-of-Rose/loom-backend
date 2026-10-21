@@ -1,3 +1,6 @@
+import secrets
+import hashlib
+
 from authlib.integrations.starlette_client import OAuth
 from authlib.integrations.base_client import OAuthError
 from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
@@ -5,10 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import User
 from ..services import get_user_by_email, get_user_by_oauth
+from ..util import whitelist
 from ..core.database import get_session
 from ..core.config import settings
 from ..core.limiter import limiter
-from ..util.security import encode_jwt_token
+from ..util.security import create_access_token
 
 oauth = OAuth()
 oauth.register(
@@ -66,13 +70,15 @@ async def google_callback(request: Request,
             await session.commit()
             await session.refresh(user)
 
-    access_token = encode_jwt_token(user.id, 'access')
-    refresh_token = encode_jwt_token(user.id, 'refresh')
+    access_token = create_access_token(user.id)
+    refresh_token = secrets.token_hex(32)
+    hashed = hashlib.sha256(refresh_token.encode()).hexdigest()
+    whitelist.add(hashed, settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60, user.id)
+
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
         httponly=True,
-        secure=True,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
 
