@@ -1,13 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from starlette.middleware.sessions import SessionMiddleware
 
 from . import auth
 from .core.config import settings
 from .core.limiter import limiter
-from .routers import account, query, search, profiles, posts, comments, vote
+from .routers import account, comments, posts, profiles, query, search, vote
 
 app = FastAPI(
     title='Loom',
@@ -22,13 +22,13 @@ app.add_middleware(
     allow_origins=settings.ORIGIN,
     allow_credentials=True,
     allow_methods=['*'],
-    allow_headers=['*']
+    allow_headers=['*'],
 )
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SESSION_SECRET,
     same_site='lax',
-    https_only=False
+    https_only=False,
 )
 
 app.include_router(auth.default.router)
@@ -40,6 +40,7 @@ app.include_router(comments.router)
 app.include_router(vote.router)
 app.include_router(query.router)
 app.include_router(search.router)
+
 
 @app.get('/', tags=['Health'])
 def root():

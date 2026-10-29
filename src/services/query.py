@@ -1,18 +1,22 @@
-from typing import Tuple, Literal
+from typing import Literal
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import Select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Profile, Post, Comment
-from ..schemas import QueryResponse, QueryMeta
+from ..models import Comment, Post, Profile
+from ..schemas import QueryMeta, QueryResponse
 from ..util.cursor import decode_cursor, encode_cursor
 
-async def query_items(session: AsyncSession, Base: Profile | Post | Comment,
-                      stmt: Select[Tuple[Profile | Post | Comment]],
-                      cursor: str | None, direction: Literal['prev', 'next'],
-                      limit: int) -> QueryResponse[Profile | Post | Comment]:
+async def query_items(
+    session: AsyncSession,
+    Base: Profile | Post | Comment,
+    stmt: Select[tuple[Profile | Post | Comment]],
+    cursor: str | None,
+    direction: Literal['prev', 'next'],
+    limit: int,
+) -> QueryResponse[Profile | Post | Comment]:
     if cursor is not None:
         try:
             target_id = decode_cursor(cursor)
@@ -23,8 +27,9 @@ async def query_items(session: AsyncSession, Base: Profile | Post | Comment,
                 stmt = stmt.where(Base.id > target_id).order_by(Base.id.asc())
 
         except ValueError:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail='Invalid cursor')
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid cursor'
+            )
 
     else:
         if direction == 'next':
@@ -79,9 +84,5 @@ async def query_items(session: AsyncSession, Base: Profile | Post | Comment,
                 prev_cursor = cursor
 
     return QueryResponse(
-        data=items,
-        meta=QueryMeta(
-            prev_cursor=prev_cursor,
-            next_cursor=next_cursor
-        )
+        data=items, meta=QueryMeta(prev_cursor=prev_cursor, next_cursor=next_cursor)
     )

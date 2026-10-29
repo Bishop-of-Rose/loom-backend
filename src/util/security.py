@@ -1,9 +1,9 @@
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
-from datetime import datetime, UTC, timedelta
 
 import jwt
+from fastapi import HTTPException, status
 from pydantic import BaseModel
-from fastapi import status, HTTPException
 
 from ..core.config import settings
 
@@ -34,15 +34,19 @@ def verify_access_token(token: str):
             raise ValueError
 
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'Expected access token form unadhered')
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Expected access token form unadhered',
+        )
 
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'Access token expired')
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail='Access token expired'
+        )
 
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f'Access token invalid')
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail='Access token invalid'
+        )
 
     return payload

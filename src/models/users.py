@@ -1,5 +1,5 @@
-from uuid import uuid7, UUID
 from datetime import datetime
+from uuid import UUID, uuid7
 
 from sqlalchemy import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -8,7 +8,7 @@ from . import Base
 from .profiles import Profile
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = 'users'
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     email: Mapped[str] = mapped_column(unique=True)

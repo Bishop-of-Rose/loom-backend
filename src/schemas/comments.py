@@ -1,8 +1,7 @@
 from datetime import datetime
-from typing import Set
 from uuid import UUID
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from .profiles import MinProfileResponse
 
@@ -26,12 +25,11 @@ class CommentResponse(BaseModel):
     commented: UUID | None
     replied: UUID | None
     content: str
-    media: Set[str]
+    media: set[str]
     likes_count: int
     dislikes_count: int
     created_at: datetime
     updated_at: datetime
     author: MinProfileResponse
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -1,7 +1,7 @@
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class ProfileInit(BaseModel):
     username: str
@@ -14,6 +14,8 @@ class MinProfileResponse(BaseModel):
     username: str
     avatar: str
 
+    model_config = ConfigDict(from_attributes=True)
+
 class ProfileResponse(BaseModel):
     id: UUID
     username: str
@@ -21,5 +23,4 @@ class ProfileResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

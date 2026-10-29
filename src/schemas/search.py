@@ -1,16 +1,15 @@
-from typing import Generic, TypeVar, List
+from typing import Generic, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 T = TypeVar('T')
 
 class SearchMeta(BaseModel):
-    missing: List[UUID]
+    missing: list[UUID]
 
 class SearchResponse(BaseModel, Generic[T]):
-    data: List[T]
+    data: list[T]
     meta: SearchMeta
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -1,7 +1,7 @@
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 from .profiles import ProfileResponse
 
@@ -19,5 +19,4 @@ class UserResponse(BaseModel):
     updated_at: datetime
     profile: ProfileResponse | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

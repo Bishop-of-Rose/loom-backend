@@ -11,7 +11,7 @@ def get(hashed: str) -> UUID | None:
 
 def add(hashed: str, ttl: int, user_id: UUID) -> None:
     if ttl > 0:
-        client.setex(f'whitelist:{hashed}', ttl, user_id.bytes)
+        client.set(f'whitelist:{hashed}', user_id.bytes, ttl)
 
 def remove(hashed: str) -> None:
     client.delete(f'whitelist:{hashed}')

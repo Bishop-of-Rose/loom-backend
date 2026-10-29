@@ -1,31 +1,26 @@
-from typing import Set
-from uuid import uuid7, UUID
 from datetime import datetime
+from uuid import UUID, uuid7
 
-from sqlalchemy import ForeignKey, func, CheckConstraint, ARRAY, String, select
-from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
+from sqlalchemy import ARRAY, CheckConstraint, ForeignKey, String, func, select
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from . import Base
 from .profiles import Profile
 from .vote import Vote
 
 class Comment(Base):
-    __tablename__ =  "comments"
+    __tablename__ = 'comments'
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     author_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'))
     commented: Mapped[UUID | None] = mapped_column(ForeignKey('posts.id', ondelete='CASCADE'))
     replied: Mapped[UUID | None] = mapped_column(ForeignKey('comments.id', ondelete='CASCADE'))
     content: Mapped[str] = mapped_column()
-    media: Mapped[Set[str]] = mapped_column(ARRAY(String), default=[])
+    media: Mapped[set[str]] = mapped_column(ARRAY(String), default=[])
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
-    author: Mapped[Profile] = relationship(
-        'Profile',
-        lazy='joined',
-        viewonly=True
-    )
+    author: Mapped[Profile] = relationship('Profile', lazy='joined', viewonly=True)
     likes_count: Mapped[int] = column_property(
         select(func.count(Vote.id))
         .where(Vote.comment_id == id)
@@ -43,7 +38,6 @@ class Comment(Base):
 
     __table_args__ = (
         CheckConstraint(
-            '(commented IS NULL) != (replied IS NULL)',
-            name='ck_comment_target'
+            '(commented IS NULL) != (replied IS NULL)', name='ck_comment_target'
         ),
     )

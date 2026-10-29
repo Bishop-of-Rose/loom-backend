@@ -14,7 +14,9 @@ async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     user = (await session.scalars(stmt)).one_or_none()
     return user
 
-async def get_user_by_oauth(session: AsyncSession, oauth_id: str, provider: str) -> User | None:
+async def get_user_by_oauth(
+    session: AsyncSession, oauth_id: str, provider: str
+) -> User | None:
     stmt = select(User)
     if provider == 'google':
         stmt = stmt.where(User.google_id == oauth_id)

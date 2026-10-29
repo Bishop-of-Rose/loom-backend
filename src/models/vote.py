@@ -1,13 +1,14 @@
 from typing import Literal
-from uuid import uuid7, UUID
+from uuid import UUID, uuid7
 
-from sqlalchemy import ForeignKey, Enum, UniqueConstraint, CheckConstraint, Index
+from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from . import Base
 
+
 class Vote(Base):
-    __tablename__ = "votes"
+    __tablename__ = 'votes'
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     author_id: Mapped[UUID] = mapped_column(ForeignKey('profiles.id', ondelete='CASCADE'))
@@ -17,15 +18,14 @@ class Vote(Base):
 
     __table_args__ = (
         CheckConstraint(
-            '(post_id IS NULL) != (comment_id IS NULL)',
-            name='ck_vote_target'
+            '(post_id IS NULL) != (comment_id IS NULL)', name='ck_vote_target'
         ),
         UniqueConstraint(
             'author_id',
             'post_id',
             'comment_id',
             name='uq_vote_author_target',
-            postgresql_nulls_not_distinct=True
+            postgresql_nulls_not_distinct=True,
         ),
         Index(
             'ix_vote_post_id',
@@ -36,5 +36,5 @@ class Vote(Base):
             'ix_vote_comment_id',
             'comment_id',
             postgresql_where=(comment_id.is_not(None)),
-        )
+        ),
     )
