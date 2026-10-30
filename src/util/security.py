@@ -23,15 +23,13 @@ def create_access_token(user_id: UUID) -> str:
         'exp': exp,
     }
 
-    token = jwt.encode(payload, settings.SECRET_KEY, settings.ALGORITHM)
+    token = jwt.encode(payload, settings.ACCESS_JWT_SECRET, settings.JWT_ALGORITHM)
     return token
 
 def verify_access_token(token: str):
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, settings.ALGORITHM)
+        payload = jwt.decode(token, settings.ACCESS_JWT_SECRET, settings.JWT_ALGORITHM)
         payload = Payload.model_validate(payload).model_dump()
-        if payload['exp'] - payload['iat'] != settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60:
-            raise ValueError
 
     except ValueError:
         raise HTTPException(

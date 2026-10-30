@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+import time
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -16,6 +18,16 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    end_time = time.perf_counter()
+    process_time = end_time - start_time
+
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,7 +52,6 @@ app.include_router(comments.router)
 app.include_router(vote.router)
 app.include_router(query.router)
 app.include_router(search.router)
-
 
 @app.get('/', tags=['Health'])
 def root():

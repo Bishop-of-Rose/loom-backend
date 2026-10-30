@@ -29,7 +29,7 @@ async def test_session() -> AsyncGenerator[AsyncSession]:
     session = AsyncSession(bind=connection)
 
     nested = await connection.begin_nested()
-    @event.listens_for(session.sync_session, 'after_transaction_end')
+    @event.listens_for(session.sync_session, 'after_transaction_end', once=True)
     async def restart_savepoint(s, t):
         nonlocal nested
         if not nested.is_active:
@@ -73,22 +73,12 @@ async def auth_header(
     return authorization_header
 
 @pytest.fixture
-async def initiated_profile(
-    client: AsyncClient, registered_user: dict[str, Any], auth_header: dict[str, str]
-) -> dict[str, Any]:
-    payload = {'username': 'random_username'}
-    res = await client.post('/profiles', headers=auth_header, json=payload)
-    registered_user['profile'] = res.json()
-    return registered_user
-
-@pytest.fixture
 async def init_auth_header(
-    client: AsyncClient, initiated_profile: dict[str, Any]
+    client: AsyncClient, auth_header: dict[str, str],
 ) -> dict[str, str]:
-    res = await client.post('/auth/jwt/login', json=initiated_profile)
-    access_token = res.json().get('access_token')
-    authorization_header = {'Authorization': 'Bearer ' + access_token}
-    return authorization_header
+    payload = {'username': 'random_username'}
+    await client.post('/profiles', headers=auth_header, json=payload)
+    return auth_header
 
 @pytest.fixture
 async def logged_in(
@@ -111,6 +101,24 @@ async def created_post(
     res = await client.post('/posts', headers=init_auth_header, json=payload)
     post = res.json()
     return post
+
+@pytest.fixture
+async def created_root_comment(
+    client: AsyncClient, init_auth_header: dict[str, str], created_post: dict[str, Any]
+) -> dict[str, Any]:
+    payload = {'commented': created_post['id'], 'content': 'random content'}
+    res = await client.post('/comments', headers=init_auth_header, json=payload)
+    comment = res.json()
+    return comment
+
+@pytest.fixture
+async def created_branch_comment(
+    client: AsyncClient, init_auth_header: dict[str, str], created_root_comment: dict[str, Any]
+) -> dict[str, Any]:
+    payload = {'replied': created_root_comment['id'], 'content': 'random content'}
+    res = await client.post('/comments', headers=init_auth_header, json=payload)
+    comment = res.json()
+    return comment
 
 @pytest.fixture(autouse=True)
 async def reset_rate_limiter():

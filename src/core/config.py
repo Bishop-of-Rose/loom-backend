@@ -5,8 +5,9 @@ class Settings(BaseSettings):
     TEST_DATABASE_URL: str
     DATABASE_URL: str
     REDIS_URL: str
-    SECRET_KEY: str
-    ALGORITHM: str
+    ACCESS_JWT_SECRET: str
+    REFRESH_JWT_SECRET: str
+    JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
     GOOGLE_CLIENT_ID: str
