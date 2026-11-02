@@ -19,7 +19,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-@app.middleware("http")
+@app.middleware('http')
 async def add_process_time_header(request: Request, call_next):
     start_time = time.perf_counter()
     response = await call_next(request)
@@ -31,7 +31,7 @@ async def add_process_time_header(request: Request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ORIGIN,
+    allow_origins=['http://localhost:63342'],
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
