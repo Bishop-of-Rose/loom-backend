@@ -1,10 +1,8 @@
 import hashlib
 import secrets
 
-from asyncpg.exceptions import UniqueViolationError
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only, raiseload
 
@@ -13,34 +11,12 @@ from ..core.database import get_session
 from ..core.dependencies import get_refresh_token
 from ..core.limiter import limiter
 from ..models import User
-from ..schemas import LoginForm, RegistrationForm, UserResponse
+from ..schemas import LoginForm
 from ..util import whitelist
-from ..util.password import hash_pw, verify_pw
+from ..util.password import verify_pw
 from ..util.security import create_access_token
 
 router = APIRouter(prefix='/auth/jwt', tags=['JWT Authentication'])
-
-@router.post('/register', status_code=status.HTTP_201_CREATED, response_model=UserResponse)
-@limiter.limit('10/minute')
-async def register(request: Request,
-                   response: Response,
-                   user: RegistrationForm,
-                   session: AsyncSession = Depends(get_session)):
-    user.password = hash_pw(user.password)
-    user = User(**user.model_dump())
-    try:
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-
-    except IntegrityError as e:
-        if isinstance(getattr(e.orig, '__cause__', None), UniqueViolationError):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail='User with that email already exists',
-            )
-
-    return user
 
 @router.post('/login')
 @limiter.limit('10/minute')
@@ -51,7 +27,7 @@ async def login(request: Request,
     stmt = (
         select(User)
         .where(User.email == data.email)
-        .options(load_only(User.id, User.password), raiseload(User.profile))
+        .options(load_only(User.id, User.email, User.password), raiseload(User.profile))
     )
     user = (await session.scalars(stmt)).one_or_none()
     if user is None:

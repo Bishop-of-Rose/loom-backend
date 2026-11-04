@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
+    SESSION_EXPIRE_MINUTES: int
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
     SESSION_SECRET: str

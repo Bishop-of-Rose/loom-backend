@@ -3,12 +3,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-class ProfileInit(BaseModel):
-    username: str
-
-class ProfileChange(BaseModel):
-    username: str | None
-
 class MinProfileResponse(BaseModel):
     id: UUID
     username: str
