@@ -10,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import auth
 from .core.config import settings
 from .core.limiter import limiter
-from .routers import account, comments, posts, profile, query, search, vote
+from .routers import comments, posts, profile, query, search, vote
 
 app = FastAPI(
     title='Loom',
@@ -32,7 +32,7 @@ async def add_process_time_header(request: Request, call_next: Callable[[Request
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://localhost:63342'],
+    allow_origins=settings.FRONTEND_URL,
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
@@ -46,8 +46,6 @@ app.add_middleware(
 
 app.include_router(auth.jwt.router)
 app.include_router(auth.google.router)
-app.include_router(auth.session.router)
-app.include_router(account.router)
 app.include_router(profile.router)
 app.include_router(posts.router)
 app.include_router(comments.router)

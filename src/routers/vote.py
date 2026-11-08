@@ -16,8 +16,24 @@ router = APIRouter(
     tags=['Vote'],
 )
 
+@router.get('')
+async def get_vote(
+    target: VoteBase,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+):
+    stmt = select(Vote).where(
+        Vote.author_id == current_user.id,
+        Vote.post_id == target.post_id,
+        Vote.comment_id == target.comment_id,
+    )
+    vote = (await session.scalars(stmt)).one_or_none()
+    if vote is None:
+        return None
 
-@router.post('')
+    return vote.type
+
+@router.patch('')
 async def toggle_vote(
     target: VoteBase,
     choice: Literal['LIKE', 'DISLIKE'],

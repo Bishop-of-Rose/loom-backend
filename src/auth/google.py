@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 from ..core.database import get_session
 from ..core.limiter import limiter
-from ..models import User
+from ..models import User, Profile
 from ..services import get_user_by_email, get_user_by_oauth
 from ..util import whitelist
 from ..util.security import create_access_token
@@ -64,6 +64,9 @@ async def google_callback(
             user = User(
                 email=userinfo['email'],
                 google_id=userinfo['sub'],
+                profile=Profile(
+                    username=userinfo['email'].split('@')[0],
+                )
             )
 
             session.add(user)

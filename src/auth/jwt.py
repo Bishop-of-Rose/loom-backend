@@ -5,18 +5,47 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only, raiseload
+from sqlalchemy.exc import IntegrityError
+from asyncpg.exceptions import UniqueViolationError
 
 from ..core.config import settings
 from ..core.database import get_session
-from ..core.dependencies import get_refresh_token
+from ..core.dependencies import get_current_user, get_refresh_token
 from ..core.limiter import limiter
-from ..models import User
-from ..schemas import LoginForm
+from ..models import User, Profile
+from ..schemas import RegistrationRequestForm, LoginForm, UserResponse
 from ..util import whitelist
-from ..util.password import verify_pw
+from ..util.password import verify_pw, hash_pw
 from ..util.security import create_access_token
 
 router = APIRouter(prefix='/auth/jwt', tags=['JWT Authentication'])
+
+@router.post('/register', status_code=status.HTTP_201_CREATED, response_model=UserResponse)
+@limiter.limit('10/minute')
+async def register(request: Request,
+                   response: Response,
+                   user: RegistrationRequestForm,
+                   session: AsyncSession = Depends(get_session)):
+    user.password = hash_pw(user.password)
+    user = User(
+        **user.model_dump(),
+        profile=Profile(
+            username=user.email.split('@')[0]
+        )
+    )
+    try:
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+    except IntegrityError as e:
+        if isinstance(getattr(e.orig, '__cause__', None), UniqueViolationError):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail='User with that email already exists',
+            )
+
+    return user
 
 @router.post('/login')
 @limiter.limit('10/minute')
@@ -84,3 +113,7 @@ def refresh(response: Response, refresh_token: str = Depends(get_refresh_token))
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
     return {'access_token': access_token}
+
+@router.get('/whoami', response_model=UserResponse)
+def who_am_i(current_user: User = Depends(get_current_user)):
+    return current_user

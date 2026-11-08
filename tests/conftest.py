@@ -28,12 +28,12 @@ async def test_session() -> AsyncGenerator[AsyncSession]:
     transaction = await connection.begin()
     session = AsyncSession(bind=connection)
 
-    nested = connection.begin_nested()
+    nested = await connection.begin_nested()
     @event.listens_for(session.sync_session, 'after_transaction_end', once=True)
-    def restart_savepoint(s, t):
+    async def restart_savepoint(s, t):
         nonlocal nested
         if not nested.is_active:
-            nested = connection.begin_nested()
+            nested = await connection.begin_nested()
 
     yield session
 
