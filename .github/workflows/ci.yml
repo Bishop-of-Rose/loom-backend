@@ -55,6 +55,7 @@ jobs:
 
       - name: Run Tests
         env:
+          FRONTEND_URL: http://localhost:63342,http://localhost:63343
           DATABASE_URL: postgresql+asyncpg://postgres:582897146@localhost:5432/test_loom
           TEST_DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_database
           REDIS_URL: redis://localhost:6379/0
